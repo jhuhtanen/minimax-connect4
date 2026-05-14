@@ -1,0 +1,12 @@
+# Algorithms and AI Lab (May - June) 2026
+Aineopintojen harjoitustyö: Algoritmit ja tekoäly (touko-kesäkuu), Monimuoto-opetus (2026)
+
+## Documentation
+[Requirements specification](./docs/requirements_specification.md)  
+[Implementation documentation](./docs/implementation_documentation.md)  
+[Testing documentation](./docs/testing_documentation.md)  
+[User manual](./docs/user_manual.md)  
+
+## Weekly reports
+
+[Week 1](./docs/weekly_reports/week_1.md)   
