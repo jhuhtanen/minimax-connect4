@@ -8,7 +8,10 @@ The project is written in **Rust**. It uses language features up to **1.85.0** (
 
 ## Implemented algorithm
 
-The project implements a Minimax solver for Connect 4 game. The baseline for the Minimax will be a default minimax implementation with alpha-beta pruning. Minimax recursively traverses an implicit game tree generated from legal game states. The initial prototype implementation will use Tic Tac Toe. This is only for prototyping / testing purposes. The reason is that in Tic Tac Toe game the board size is fixed (3 by 3 cells) allowing fixed recursion depth and relatively small branching factor. The project uses compact board representations for Connect 4 states, recursive search trees for Minimax traversal and hash-based transposition tables for caching previously evaluated positions.
+The project implements a Minimax solver for Connect 4 game. The baseline for the Minimax will be a default minimax 
+implementation with alpha-beta pruning. Minimax recursively traverses an implicit game tree generated from legal game states. 
+The project uses compact board representations for Connect 4 states, recursive search trees for Minimax traversal and 
+hash-based transposition tables for caching previously evaluated positions.
 
 Optional: If there's time and the author feels confident, an optional Monte Carlo Tree Search implementation may be added. Due to the differences in the algorithms nature, the comparison most likely happen how solvers play against each other with a fixed amount of computing time allowed per algorithm.
 
@@ -22,7 +25,9 @@ The core of the project is the implementation and optimisation of Minimax search
 
 ## Algorithm inputs
 
-The Minimax algorithm will at the baseline get as inputs a Tic Tac Toe board state containing the cell occupancy data, the current player to move, alpha-beta parameters. When baseline has been validated and tested, new baseline with Connect 4 will be created. This baseline uses Connect 4 board state, the current player to move, alpha-beta parameters. With improved / optimised versions the inputs should stay the same as the optimisations are implemented inside the algorithm.
+The Minimax algorithm will get as inputs a state containing the cell occupancy data, the current player 
+to move, alpha-beta parameters. With improved / optimised versions the inputs should stay the same as the optimisations 
+are implemented inside the algorithm.
 
 Optional: The MCTS algorithm inputs will be a Connect 4 board state. If comparison will be done, additional inputs might be needed like maximum time for the solver to compute one move.
 

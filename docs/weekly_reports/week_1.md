@@ -22,7 +22,9 @@ wrote the requirements specification and set up the project in the Github and th
 ## Time spent
 7.5  : 6 hours  
 8.5  : 2 hours  
-14.5 : x hours  
+14.5 : 4 hours  
+15.5 : 4 hours
+16.5 : 3 hours
 
 
 ## Progression of project
