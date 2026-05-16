@@ -23,7 +23,7 @@ wrote the requirements specification and set up the project in the Github and th
 7.5  : 6 hours  
 8.5  : 2 hours  
 14.5 : 4 hours  
-15.5 : 4 hours
+15.5 : 4 hours  
 16.5 : 3 hours
 
 
@@ -40,15 +40,13 @@ wrote the requirements specification and set up the project in the Github and th
 - Importance of the heuristic function to the Minimax algorithm
 
 ## Planned next
-- Tic Tac Toe game state, board etc. for purely testing the Minimax implementation
-- Some abstractions needed for AI to be able to use both games states (Connect 4 and Tic Tac Toe)
+- Some abstractions needed for AI to be able to use both games states
 - Minimax implementation without alpha-beta pruning
 - Testing and validation that with full depth search two minimax players will always tie from all possible start 
-positions (Tic Tac Toe)
-- Alpha-beta pruning implementation (Tic Tac Toe)
-- Testing and validation that minimax algorithm with and without alpha-beta pruning yield the exact same results
+positions (with mock state)
+- Alpha-beta pruning implementation
+- Testing and validation that minimax algorithm with and without alpha-beta pruning yield the exact same results (with mock state)
 - Finishing the Connect 4 game engine
-- Moving the Minimax with alpha-beta to Connect 4 game context
 
 ## Difficulties or unclear topics
 - Time management
