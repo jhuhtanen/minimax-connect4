@@ -1,0 +1,212 @@
+use std::fmt;
+use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH, COL_STRIDE};
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub struct BitBoard {
+    bits: u64,
+}
+
+impl BitBoard {
+    pub fn empty() -> Self {
+        BitBoard {
+            bits: 0u64
+        }
+    }
+
+    pub fn has_won(&self) -> bool {
+        let directions = [1, 7, 6, 8];
+
+        for shift in directions {
+            let pairs = self.bits & (self.bits >> shift);
+
+            if (pairs & (pairs >> (2 * shift))) != 0 {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn bits(&self) -> u64 {
+        self.bits
+    }
+
+    pub(crate) fn with_bit_set(&mut self, bit: u8) {
+	    self.bits = self.bits | (1 << bit);
+    }
+
+    #[inline]
+    pub(crate) fn bit_at(&self, col: u8, row: u8) -> bool {
+        let idx = Self::bit_index(col, row);
+        (self.bits & (1u64 << idx)) != 0
+    }
+
+    pub fn bit_index(col: u8, row: u8) -> u8 {
+        debug_assert!(col < BOARD_WIDTH);
+        debug_assert!(row < BOARD_HEIGHT);
+        col * COL_STRIDE + row
+    }
+}
+
+impl fmt::Debug for BitBoard {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        // top
+        writeln!(f, "+{}+", "-".repeat(BOARD_WIDTH as usize))?;
+
+        // rows:  from top (BOARD_HEIGHT-1) down to 0
+        for row in (0..BOARD_HEIGHT).rev() {
+            write!(f, "|")?;
+            for col in 0..BOARD_WIDTH {
+                let occupied = self.bit_at(col, row);
+                let ch = if occupied { 'X' } else { '.' };
+                write!(f, "{ch}")?;
+            }
+            writeln!(f, "|")?;
+        }
+
+        // bottom
+        writeln!(f, "+{}+", "-".repeat(BOARD_WIDTH as usize))?;
+
+        // indices
+        write!(f, " ")?;
+        for col in 0..BOARD_WIDTH {
+            write!(f, "{}", col)?;
+        }
+        writeln!(f)?;
+
+        Ok(())
+    }
+}
+
+
+
+#[test]
+fn test_create_empty_board() {
+    let bitboard = BitBoard::empty();
+
+    assert_eq!(bitboard.bits(), 0u64, "Empty bitboard should not have any bits set.");
+    assert_eq!(bitboard.has_won(), false, "Empty bitboard can't have a win state.");
+}
+
+#[test]
+fn test_accessing_board_state_dont_mutate_self() {
+    let bitboard = BitBoard::empty();
+    let mut value = bitboard.bits();
+    value = 8u64;
+
+    assert_eq!(bitboard.bits(), 0u64, "Board state should be 0");
+    assert_eq!(value, 8u64, "Mutated state outside the bitboard should be 8u64");
+}
+
+#[test]
+fn test_change_board_state_with_allowed_value() {
+    let mut bitboard = BitBoard::empty();
+    let rows = BOARD_HEIGHT;
+    let cols = BOARD_WIDTH;
+    let mut expected_value = 0u64;
+    for col in 0..cols {
+        for row in 0..rows {
+            let bit_to_set = col * BOARD_WIDTH + row;
+            bitboard.with_bit_set(bit_to_set);
+            expected_value = expected_value | (1 << bit_to_set);
+            assert_eq!(bitboard.bits(), expected_value, "Board state doesn't match expected value");
+        }
+    }
+    assert_eq!(bitboard.bits(), 279258638311359u64, "Board state should be 279258638311359u64");
+}
+
+
+
+#[test]
+fn test_win_with_vertical_four_connected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens in column 0 connected with rows 0,1,2,3 forming a win state
+    // token coordinates in format [colum, row]
+    let tokens:[[u8;2];4] = [[0,0],[0,1],[0,2],[0,3]];
+    set_token_positions(&mut bitboard, tokens);
+    assert!(bitboard.has_won(), "Board should have won state");
+}
+
+fn set_token_positions(bitboard: &mut BitBoard, tokens: [[u8; 2]; 4]) {
+    tokens.iter().for_each(|&coord| {
+        let bit_to_set = coord[1] * BOARD_WIDTH + coord[0];
+        bitboard.with_bit_set(bit_to_set);
+    });
+}
+
+#[test]
+fn test_no_win_with_vertical_four_disconnected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens in column 0 disconnected with rows 2 and 3 being empty, not forming a win state
+    let tokens:[[u8;2];4] = [[0,0],[0,1],[0,4],[0,5]];
+    set_token_positions(&mut bitboard, tokens);
+    assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+}
+
+#[test]
+fn test_win_with_horizontal_four_connected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens in row 3 connected with columns 1,2,3,4 forming a win state
+    let tokens:[[u8;2];4] = [[1,3],[2,3],[3,3],[4,3]];
+    set_token_positions(&mut bitboard, tokens);
+    assert!(bitboard.has_won(), "Board should have won state");
+}
+
+#[test]
+fn test_no_win_with_horizontal_four_disconnected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens in row 3 disconnected with row 3 being empty, not forming a win state
+    let tokens:[[u8;2];4] = [[1,3],[2,3],[4,3],[5,3]];
+    set_token_positions(&mut bitboard, tokens);
+
+    assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+}
+
+#[test]
+fn test_win_with_diagonal_four_connected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens starting from row 1, col 1 form a diagonal connect with pairs [2,2], [3,3] and [4,4]
+    // forming a win state
+    let tokens:[[u8;2];4] = [[1,1],[2,2],[3,3],[4,4]];
+    set_token_positions(&mut bitboard, tokens);
+    assert!(bitboard.has_won(), "Board should have won state");
+}
+
+#[test]
+fn test_no_win_with_diagonal_four_disconnected() {
+    let mut bitboard = BitBoard::empty();
+    // tokens starting from row 1, col 1 have disconnect at [3,3] going to [4,4] and [5,5] but
+    // not forming a win state
+    let tokens:[[u8;2];4] = [[1,1],[2,2],[4,4],[5,5]];
+    set_token_positions(&mut bitboard, tokens);
+    assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+}
+
+#[test]
+fn test_stride_with_two_next_columns_no_win() {
+    let mut bitboard = BitBoard::empty();
+    // tokens on column 2 rows 4 and 5 do not get calculated to
+    // tokens on column 3 rows 0 and 1
+    let tokens:[[u8;2];4] = [[2,4],[2,5],[3,0],[3,1]];
+    set_token_positions(&mut bitboard, tokens);
+    assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+}
+
+#[test]
+fn test_debug_printing() {
+    let mut bitboard = BitBoard::empty();
+    let tokens:[[u8;2];4] = [[1,1],[2,2],[3,3],[4,4]];
+    set_token_positions(&mut bitboard, tokens);
+    let debug_print = format!("{:?}", bitboard);
+    let expected = "+-------+\n\
+                                    |.......|\n\
+                                    |....X..|\n\
+                                    |...X...|\n\
+                                    |..X....|\n\
+                                    |.X.....|\n\
+                                    |.......|\n\
+                                    +-------+\n\
+                                    \x200123456\n".to_string();
+    assert_eq!(debug_print, expected, "Debug print did not match expected");
+
+}
+

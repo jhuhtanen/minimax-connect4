@@ -1,0 +1,11 @@
+[package]
+name = "engine"
+version = "0.1.0"
+edition = "2024"
+
+[dev-dependencies]
+pretty_assertions = "1"
+
+[dependencies]
+log = "0.4.29"
+ai = { path = "../ai" }
