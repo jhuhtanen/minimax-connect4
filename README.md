@@ -1,6 +1,8 @@
 # Algorithms and AI Lab (May - June) 2026
 Aineopintojen harjoitustyö: Algoritmit ja tekoäly (touko-kesäkuu), Monimuoto-opetus (2026)
 
+[![codecov](https://codecov.io/github/jhuhtanen/minimax-connect4/graph/badge.svg?token=9KAHX6PQKA)](https://codecov.io/github/jhuhtanen/minimax-connect4)
+
 ## Documentation
 [Requirements specification](./docs/requirements_specification.md)  
 [Implementation documentation](./docs/implementation_documentation.md)  
