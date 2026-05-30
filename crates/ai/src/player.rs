@@ -1,9 +1,10 @@
+use serde::{Deserialize, Serialize};
 
 /// A player type used by the minimax algorithm.
 ///
 /// - [`MinMaxPlayer::Max`] is the player for whom we are maximizing the score.
 /// - [`MinMaxPlayer::Min`] is the opponent (minimizing player).
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MinMaxPlayer { Max, Min }
 
 pub trait Player : Clone {

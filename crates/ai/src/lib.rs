@@ -1,3 +1,4 @@
+use std::time::Instant;
 pub use crate::player::MinMaxPlayer;
 pub use crate::player::Player;
 pub use crate::game_state::GameState;
@@ -33,6 +34,10 @@ pub struct SearchResult<M> {
     /// This can be used for debugging, performance analysis, and to compare
     /// plain minimax vs alpha-beta pruning.
     pub nodes_visited: u64,
+    /// Time spent in this search call, in milliseconds.
+    pub millis_spent: u128,
+    /// The search depth used for this result (for iterative deepening, this is the last completed depth).
+    pub depth_reached: u32,
 }
 
 /// Configuration parameters for a minimax (or alpha-beta) search.
@@ -94,15 +99,20 @@ impl SearchConfig {
     }
 }
 
+const WIN_SCORE:  i32 = 1_000_000;
+const LOSS_SCORE: i32 = -1_000_000;
+
 pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
+    let start = Instant::now();
+
     fn inner<G: GameState>(state: &G,
                             config: &SearchConfig) -> (Option<G::Move>, i32, u64) {
         // game has ended (terminal)
         if let Some(outcome) = state.outcome() {
             let score = match outcome {
                 Outcome::Win(min_max_player) => match min_max_player {
-                    MinMaxPlayer::Max => 1,
-                    MinMaxPlayer::Min => -1
+                    MinMaxPlayer::Max => WIN_SCORE,
+                    MinMaxPlayer::Min => LOSS_SCORE
                 }
                 Outcome::Draw => 0,
             };
@@ -169,7 +179,8 @@ pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G
     }
 
     let (best_move, score, nodes_visited) = inner(state, config);
-    SearchResult { best_move, score, nodes_visited }
+    SearchResult { best_move, score, nodes_visited,
+        millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
 }
 
 #[cfg(test)]
@@ -285,7 +296,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Max, 0, 2);
         let mv = minimax(&state, &SearchConfig::new(0));
         assert!(state.outcome().is_some());
-        assert_eq!(mv.score, 1, "Max winning, score should have been 1");
+        assert_eq!(mv.score, WIN_SCORE, "Max winning, score should have been {}", WIN_SCORE);
         assert_eq!(state.outcome().unwrap(), Outcome::Win(MinMaxPlayer::Max), "Max should have won at 0 depth")
     }
 
@@ -294,7 +305,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Max, 0, -2);
         let mv = minimax(&state, &SearchConfig::new(0));
         assert!(state.outcome().is_some());
-        assert_eq!(mv.score, -1, "Min winning, score should have been -1");
+        assert_eq!(mv.score, LOSS_SCORE, "Min winning, score should have been {}", LOSS_SCORE);
         assert_eq!(state.outcome().unwrap(), Outcome::Win(MinMaxPlayer::Min), "Min should have won at 0 depth")
     }
 
@@ -321,7 +332,7 @@ mod tests {
         let mv = minimax(&state, &SearchConfig::new(1));
         assert!(mv.best_move.is_some());
         assert_eq!(mv.best_move.unwrap(), MockMove::Left, "Max should have chosen left");
-        assert_eq!(mv.score, 1, "Score for playing left should have been 1");
+        assert_eq!(mv.score, WIN_SCORE, "Score for playing left should have been {}", WIN_SCORE);
         assert!(state.outcome().is_none());
     }
 
@@ -330,7 +341,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Max, 1, 0);
         let mv = minimax(&state, &SearchConfig::new_alpha_beta(1));
         assert_eq!(mv.best_move.unwrap(), MockMove::Left, "Max should have chosen left");
-        assert_eq!(mv.score, 1, "Score for playing left should have been 1");
+        assert_eq!(mv.score, WIN_SCORE, "Score for playing left should have been {}", WIN_SCORE);
     }
 
     #[test]
@@ -339,7 +350,7 @@ mod tests {
         let mv = minimax(&state, &SearchConfig::new(1));
         assert!(mv.best_move.is_some());
         assert_eq!(mv.best_move.unwrap(), MockMove::Right, "Min should have chosen right");
-        assert_eq!(mv.score, -1, "Score for playing right should have been -1");
+        assert_eq!(mv.score, LOSS_SCORE, "Score for playing right should have been {}", LOSS_SCORE);
         assert!(state.outcome().is_none());
     }
 
@@ -348,7 +359,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Min, 1, 0);
         let mv = minimax(&state, &SearchConfig::new_alpha_beta(1));
         assert_eq!(mv.best_move.unwrap(), MockMove::Right, "Min should have chosen right");
-        assert_eq!(mv.score, -1, "Score for playing right should have been -1");
+        assert_eq!(mv.score, LOSS_SCORE, "Score for playing right should have been {}", LOSS_SCORE);
     }
 
     #[test]
