@@ -1,9 +1,10 @@
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::thread;
 use ai::{minimax, GameState, MinMaxPlayer, Outcome, SearchConfig};
 use engine::constants::{BOARD_HEIGHT, BOARD_WIDTH};
-use engine::game_state::{ConnectFourState};
+use engine::game_state::{ConnectFourState, HeuristicVersion};
 use engine::moves::Move;
 
 pub const ANSI_RESET: &str = "\u{001B}[0m";
@@ -20,23 +21,40 @@ enum State {
     Done
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug, Hash)]
+enum PlayerColor {
+    Red,
+    Yellow
+}
+
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum PlayerType {
     Human,
     AI
 }
 
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+struct AiSetting {
+    pub color : PlayerColor,
+    pub player: MinMaxPlayer,
+    pub heuristic: HeuristicVersion,
+}
+
 #[derive(Debug)]
 struct GameSettings {
-    pub player_types: HashMap<MinMaxPlayer, PlayerType> ,
+    pub color_to_type: HashMap<PlayerColor, PlayerType>,
+    pub minimax_to_player: HashMap<MinMaxPlayer, PlayerColor>,
+    pub ai_setting: HashMap<MinMaxPlayer, AiSetting>,
     pub search_config: SearchConfig,
 }
 
 impl GameSettings {
     pub fn default() -> GameSettings {
         GameSettings {
-            player_types: HashMap::new(),
-            search_config: SearchConfig::new_alpha_beta(5)
+            color_to_type: HashMap::new(),
+            minimax_to_player: HashMap::new(),
+            ai_setting: HashMap::new(),
+            search_config: SearchConfig::new_alpha_beta(6),
         }
     }
 }
@@ -59,7 +77,8 @@ fn main() {
     while state != State::Done {
         match state {
             State::Settings => {
-                handle_settings_state(&mut game, &mut ui, &mut state, &mut game_settings);
+                handle_settings_state(&mut state, &mut game_settings);
+                apply_game_settings(&mut game, &game_settings);
             }
             State::Running => {
                 handle_running_state(&mut game, &mut ui, &mut state, &game_settings);
@@ -70,11 +89,32 @@ fn main() {
 
 }
 
-fn handle_settings_state(game: &mut ConnectFourState, ui: &mut UiState, state: &mut State, game_settings: &mut GameSettings) {
+fn apply_game_settings(game: &mut ConnectFourState, game_settings: &GameSettings) {
+    if game_settings.color_to_type[&PlayerColor::Red] == PlayerType::AI {
+        let version = game_settings
+            .ai_setting
+            .get(&MinMaxPlayer::Max)
+            .unwrap()
+            .clone();
+        game.set_player_heuristic(MinMaxPlayer::Max, version.heuristic);
+    }
+    if game_settings.color_to_type[&PlayerColor::Yellow] == PlayerType::AI {
+        let version = game_settings
+            .ai_setting
+            .get(&MinMaxPlayer::Min)
+            .unwrap()
+            .clone();
+        game.set_player_heuristic(MinMaxPlayer::Min, version.heuristic);
+    }
+}
+
+fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     println!("Connect Four");
 
     let mut red_player = None;
     let mut yellow_player = None;
+    let mut red_heuristic = None;
+    let mut yellow_heuristic = None;
     while red_player.is_none() || yellow_player.is_none() {
         println!("Select Red player: [0 = Human], [1 = AI]");
         if let Some(red) = read_column() {
@@ -93,8 +133,43 @@ fn handle_settings_state(game: &mut ConnectFourState, ui: &mut UiState, state: &
             };
         }
     };
-    game_settings.player_types.insert(MinMaxPlayer::Max, red_player.unwrap_or(PlayerType::Human));
-    game_settings.player_types.insert(MinMaxPlayer::Min, yellow_player.unwrap_or(PlayerType::Human));
+    if red_player == Some(PlayerType::AI) {
+        while red_heuristic.is_none() {
+            println!("Select Red player heuristic: [0 = v1], [1 = v2]");
+            if let Some(red) = read_column() {
+                red_heuristic = match red {
+                    0 => Some(HeuristicVersion::V1),
+                    1 => Some(HeuristicVersion::V2),
+                    _ => None
+                };
+            }
+        }
+    }
+    if yellow_player == Some(PlayerType::AI) {
+        while yellow_heuristic.is_none() {
+            println!("Select Yellow player heuristic: [0 = v1], [1 = v2]");
+            if let Some(red) = read_column() {
+                yellow_heuristic = match red {
+                    0 => Some(HeuristicVersion::V1),
+                    1 => Some(HeuristicVersion::V2),
+                    _ => None
+                };
+            }
+        }
+    }
+    game_settings.color_to_type.insert(PlayerColor::Red, red_player.unwrap_or(PlayerType::Human));
+    game_settings.color_to_type.insert(PlayerColor::Yellow, yellow_player.unwrap_or(PlayerType::Human));
+    if red_player == Some(PlayerType::AI) {
+        game_settings.ai_setting.insert(MinMaxPlayer::Max,
+                                        AiSetting { color: PlayerColor::Red, player: MinMaxPlayer::Max, heuristic: red_heuristic.unwrap() });
+    }
+    game_settings.minimax_to_player.insert(MinMaxPlayer::Max, PlayerColor::Red);
+    if yellow_player == Some(PlayerType::AI) {
+        game_settings.ai_setting.insert(MinMaxPlayer::Min,
+                                        AiSetting { color: PlayerColor::Yellow, player: MinMaxPlayer::Min, heuristic: yellow_heuristic.unwrap() });
+    }
+    game_settings.minimax_to_player.insert(MinMaxPlayer::Min, PlayerColor::Yellow);
+
     *state = State::Running;
 }
 
@@ -104,7 +179,18 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
     if let Some(outcome) = game.outcome() {
         match outcome {
             Outcome::Win(winner) => {
-                println!("Player {:?} ({:?}) wins!", represent_player(&winner), game_settings.player_types[&winner]);
+                let player_color = game_settings.minimax_to_player[&winner];
+                let player_type = game_settings.color_to_type[&player_color];
+                let type_presentation= match player_type {
+                    PlayerType::Human => {
+                        format!("{:?}", player_type)
+                    },
+                    PlayerType::AI => {
+                        format!("{:?}, heuristic: {:?}", player_type, game_settings.ai_setting.get(&winner).unwrap().heuristic)
+                    }
+                };
+
+                println!("Player {:?} ({:?}) wins!", represent_player(&winner, &game_settings), type_presentation);
             },
             Outcome::Draw => {
                 println!("It's a draw!");
@@ -115,8 +201,8 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
         return;
     }
 
-    println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player()),
-             game_settings.player_types[&game.current_player()]);
+    println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player(), &game_settings),
+             game_settings.minimax_to_player[&game.current_player()]);
     println!(
         "Available columns: {:?}",
         game
@@ -128,7 +214,8 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
     // clear previous error
     ui.error_message = None;
     // crate move based on the current player
-    let mv = match game_settings.player_types[&game.current_player()] {
+    let player_color = game_settings.minimax_to_player[&game.current_player()];
+    let mv = match game_settings.color_to_type[&player_color] {
         PlayerType::Human => {
             let col = match prompt_column_inline() {
                 Some(c) => c,
@@ -150,6 +237,8 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
             mv
         },
         PlayerType::AI => {
+            println!("color {:?}, {:?}", player_color, game_settings.ai_setting.get(&game.current_player()).unwrap());
+            println!("game: {:?}, {:?}", game.player_heuristic[0], game.current_player);
             let result = minimax(game, &game_settings.search_config);
             result.best_move.unwrap()
         }
@@ -163,6 +252,14 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
             return;
         }
     };
+    if both_players_ai(&game_settings) {
+        thread::sleep(core::time::Duration::from_millis(100));
+    }
+}
+
+fn both_players_ai(game_settings: &GameSettings) -> bool {
+    game_settings.color_to_type[&PlayerColor::Red] == PlayerType::AI &&
+        game_settings.color_to_type[&PlayerColor::Yellow] == PlayerType::AI
 }
 
 fn handle_state_change(current_state: &mut State) {
@@ -181,10 +278,10 @@ fn redraw_screen(game: &ConnectFourState, ui_state: &UiState) {
     io::stdout().flush().ok();
 }
 
-fn represent_player(player: &MinMaxPlayer) -> String {
-    match player {
-        &MinMaxPlayer::Max => String::from("Red"),
-        &MinMaxPlayer::Min => String::from("Yellow"),
+fn represent_player(player: &MinMaxPlayer, game_settings: &GameSettings) -> String {
+    match game_settings.minimax_to_player[player] {
+        PlayerColor::Yellow => String::from("Yellow"),
+        PlayerColor::Red => String::from("Red"),
     }
 }
 
