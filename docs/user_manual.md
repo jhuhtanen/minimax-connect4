@@ -6,9 +6,10 @@ to install rust is using Rustup. Rustup is a toolchain management application fo
 Go to this [website](https://rust-lang.org/tools/install/) and use
 
 MacOS: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`  
-Win64: To be added 
+Win64: Download installer exe, and use it to install Rustup.
 
-All rust tools are installed under ~/cargo/bin so you need to make sure this is in
+All rust tools are installed under home directory of your operating system, such as
+`~/cargo/bin` or `C:\Users\[your_user_name]\.cargo`. You need to make sure this is in
 your PATH. Rustup installation tries to add this to your PATH, but if it fails you need to add it manually.
 
 Author uses rust version: `rustc 1.87.0` so you might need to install older version
