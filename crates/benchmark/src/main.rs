@@ -148,8 +148,13 @@ fn play_one_game(cfg: &RunConfig, starting_player: MinMaxPlayer) -> GameStats {
     while game.outcome().is_none() {
 
         let search_cfg = build_search_config(cfg);
-
-        let search_result = ai::minimax(&game, &search_cfg);
+        let search_result = {
+            if let Some(_) = cfg.time_ms {
+                ai::iterative_minimax(&game, &search_cfg)
+            } else {
+                ai::minimax(&game, &search_cfg)
+            }
+        };
         let mv = search_result.best_move.expect("must have a move");
         game = game.with_move(&mv).unwrap();
 
@@ -192,5 +197,6 @@ fn build_search_config(config: &RunConfig) -> ai::SearchConfig {
     if config.alpha_beta {
         sc = sc.with_alpha_beta(true, i32::MIN, i32::MAX);
     }
+    sc.time_ms = config.time_ms;
     sc
 }

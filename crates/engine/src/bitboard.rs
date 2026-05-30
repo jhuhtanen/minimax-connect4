@@ -1,7 +1,7 @@
 use std::fmt;
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH, COL_STRIDE};
 
-#[derive(Clone, Copy, PartialEq, Eq)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BitBoard {
     bits: u64,
 }

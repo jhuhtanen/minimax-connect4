@@ -1,6 +1,7 @@
 use std::cmp::PartialEq;
 use std::collections::HashMap;
 use std::io::{self, Write};
+use std::str::FromStr;
 use std::thread;
 use ai::{minimax, GameState, MinMaxPlayer, Outcome, SearchConfig};
 use engine::constants::{BOARD_HEIGHT, BOARD_WIDTH};
@@ -31,6 +32,12 @@ enum PlayerColor {
 enum PlayerType {
     Human,
     AI
+}
+
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
+enum AiMode {
+    FixedDepth,
+    TimeLimited
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
@@ -115,6 +122,8 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     let mut yellow_player = None;
     let mut red_heuristic = None;
     let mut yellow_heuristic = None;
+    let mut ai_mode = None;
+    let mut time_ms : Option<u64> = None;
     while red_player.is_none() || yellow_player.is_none() {
         println!("Select Red player: [0 = Human], [1 = AI]");
         if let Some(red) = read_column() {
@@ -157,6 +166,27 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
             }
         }
     }
+    if yellow_player == Some(PlayerType::AI) || red_player == Some(PlayerType::AI) {
+        while ai_mode.is_none() {
+            println!("AI mode: [0 = Fixed Depth], [1 = Time Limited]");
+            if let Some(col) = read_column() {
+                ai_mode = match col {
+                    0 => Some(AiMode::FixedDepth),
+                    1 => Some(AiMode::TimeLimited),
+                    _ => None
+                };
+            }
+        }
+    }
+    if ai_mode == Some(AiMode::TimeLimited) {
+        while time_ms.is_none() {
+            println!("Time limit: (ms)");
+            if let Some(col) = read_value::<u64>() {
+                time_ms = Some(col);
+                game_settings.search_config.depth = 9;
+            };
+        }
+    }
     game_settings.color_to_type.insert(PlayerColor::Red, red_player.unwrap_or(PlayerType::Human));
     game_settings.color_to_type.insert(PlayerColor::Yellow, yellow_player.unwrap_or(PlayerType::Human));
     if red_player == Some(PlayerType::AI) {
@@ -169,6 +199,7 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
                                         AiSetting { color: PlayerColor::Yellow, player: MinMaxPlayer::Min, heuristic: yellow_heuristic.unwrap() });
     }
     game_settings.minimax_to_player.insert(MinMaxPlayer::Min, PlayerColor::Yellow);
+    game_settings.search_config.time_ms = time_ms;
 
     *state = State::Running;
 }
@@ -239,7 +270,12 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
         PlayerType::AI => {
             println!("color {:?}, {:?}", player_color, game_settings.ai_setting.get(&game.current_player()).unwrap());
             println!("game: {:?}, {:?}", game.player_heuristic[0], game.current_player);
-            let result = minimax(game, &game_settings.search_config);
+            let result = if game_settings.search_config.time_ms.is_some() {
+                ai::iterative_minimax(game, &game_settings.search_config)
+            } else {
+                ai::minimax(game, &game_settings.search_config)
+            };
+            //let result = minimax(game, &game_settings.search_config);
             result.best_move.unwrap()
         }
     };
@@ -291,6 +327,10 @@ fn prompt_column_inline() -> Option<u8> {
 }
 
 fn read_column() -> Option<u8> {
+    read_value::<u8>()
+}
+fn read_value<T>() -> Option<T> where
+    T: FromStr, {
     io::stdout().flush().ok();
 
     let mut line = String::new();
@@ -301,7 +341,7 @@ fn read_column() -> Option<u8> {
     if s.eq_ignore_ascii_case("q") {
         return None;
     }
-    s.parse::<u8>().ok()
+    s.parse::<T>().ok()
 }
 
 fn wait_for_enter() {

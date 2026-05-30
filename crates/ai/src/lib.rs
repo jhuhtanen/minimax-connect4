@@ -1,4 +1,6 @@
-use std::time::Instant;
+use std::collections::HashMap;
+use std::hash::Hash;
+use std::time::{Duration, Instant};
 pub use crate::player::MinMaxPlayer;
 pub use crate::player::Player;
 pub use crate::game_state::GameState;
@@ -70,6 +72,8 @@ pub struct SearchConfig {
     /// - If `false`, a plain minimax search is performed.
     /// - If `true`, the search will prune branches where `alpha >= beta`.
     pub use_alpha_beta : bool,
+    /// Max time in milliseconds to spend per move. Used in iterative deepening.
+    pub time_ms: Option<u64>,
 }
 
 impl SearchConfig {
@@ -78,7 +82,8 @@ impl SearchConfig {
             depth,
             alpha: i32::MIN,
             beta: i32::MAX,
-            use_alpha_beta: false
+            use_alpha_beta: false,
+            time_ms: None,
         }
     }
 
@@ -87,7 +92,8 @@ impl SearchConfig {
             depth,
             alpha: i32::MIN,
             beta: i32::MAX,
-            use_alpha_beta: true
+            use_alpha_beta: true,
+            time_ms: None,
         }
     }
 
@@ -97,10 +103,149 @@ impl SearchConfig {
         self.use_alpha_beta = use_alpha_beta;
         self
     }
+
+    pub fn with_time_ms(mut self, time_ms: Option<u64>) -> Self {
+        self.time_ms = time_ms;
+        self
+    }
 }
 
 const WIN_SCORE:  i32 = 1_000_000;
 const LOSS_SCORE: i32 = -1_000_000;
+
+pub fn iterative_minimax<G: GameState + Eq + Hash>(state: &G,
+                            base_config: &SearchConfig, ) -> SearchResult<G::Move> {
+    let mut cache: HashMap<G, G::Move> = HashMap::new();
+    let start = Instant::now();
+    let deadline = base_config
+        .time_ms
+        .map(|ms| start + Duration::from_millis(ms));
+
+    let mut best_result: Option<SearchResult<G::Move>> = None;
+    let mut last_depth_time = Duration::new(0, 0);
+
+    for depth in 1..=base_config.depth {
+        // stop if we are out of time
+        if let Some(dl) = deadline {
+            let now = Instant::now();
+            if now >= dl {
+                break;
+            }
+            let remaining = dl - now;
+            if last_depth_time > remaining {
+                break;
+            }
+        }
+        let mut cfg = base_config.clone();
+        cfg.depth = depth;
+        let start_depth = Instant::now();
+        let result = minimax_with_cache(state, &cfg, &mut cache);
+        last_depth_time = start_depth.elapsed();
+
+        best_result = Some(SearchResult {
+            depth_reached: depth,
+            ..result
+        });
+    }
+
+    best_result.expect("iterative_minimax: no depth completed")
+}
+
+fn minimax_with_cache<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig,
+                                    cache: &mut HashMap<G, G::Move>, ) -> SearchResult<G::Move>{
+
+    let start = Instant::now();
+
+    fn inner<G: GameState>(state: &G,
+                           config: &SearchConfig,
+                           cache: &mut HashMap<G, G::Move>,) -> (Option<G::Move>, i32, u64) where G: Eq + Hash {
+        // game has ended (terminal)
+        if let Some(outcome) = state.outcome() {
+            let score = match outcome {
+                Outcome::Win(min_max_player) => match min_max_player {
+                    MinMaxPlayer::Max => WIN_SCORE,
+                    MinMaxPlayer::Min => LOSS_SCORE
+                }
+                Outcome::Draw => 0,
+            };
+            return (None, score, 1);
+        }
+        // it hasn't ended, but we reached the max search depth
+        if config.depth == 0 {
+            return (None, state.evaluate(), 1);
+        }
+
+        let mut best_move = None;
+        let mut moves = state.legal_moves();
+        if moves.is_empty() {
+            // Per the GameState contract, this should never happen:
+            // non-terminal state with no legal moves.
+            unreachable!("GameState contract violated: non-terminal state with no legal moves. \
+            This should not happen.");
+        }
+        // check cache first
+        if let Some(move_hint) = cache.get(state) {
+            if let Some(pos) = moves
+                .iter()
+                .position(|m| m == move_hint) {
+                moves.swap(0, pos);
+            }
+        }
+
+        let mut best_score;
+        let mut nodes = 1; // start with current node
+
+        match state.current_player() {
+            MinMaxPlayer::Max => {
+                best_score = i32::MIN;
+                let mut current_alpha = config.alpha;
+                for mv in moves {
+                    let child = state.with_move(&mv).unwrap();
+                    let new_config = SearchConfig::new(config.depth - 1)
+                        .with_alpha_beta(config.use_alpha_beta, current_alpha, config.beta);
+                    let (_, score, child_nodes) = inner(&child, &new_config, cache);
+                    nodes += child_nodes;
+                    if score > best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_alpha = current_alpha.max(score);
+                    if config.use_alpha_beta && current_alpha >= config.beta {
+                        break;
+                    }
+                }
+            }
+            MinMaxPlayer::Min => {
+                best_score = i32::MAX;
+                let mut current_beta = config.beta;
+                for mv in moves {
+                    let child = state.with_move(&mv).unwrap();
+                    let new_config = SearchConfig::new(config.depth - 1)
+                        .with_alpha_beta(config.use_alpha_beta, config.alpha, current_beta);
+                    let (_, score, child_nodes) = inner(&child, &new_config, cache);
+                    nodes += child_nodes;
+                    if score < best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_beta = current_beta.min(score);
+                    if config.use_alpha_beta && current_beta < config.alpha {
+                        break;
+                    }
+                }
+            }
+        }
+        (best_move, best_score, nodes)
+    }
+
+    let (best_move, score, nodes_visited) = inner(state, config, cache);
+    // this should always have a valid move
+    if let Some(ref mv) = best_move {
+        cache.insert(state.clone(), mv.clone());
+    }
+    SearchResult { best_move, score, nodes_visited,
+        millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
+}
 
 pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
     let start = Instant::now();

@@ -4,7 +4,7 @@ use crate::player::{MinMaxPlayer};
 
 pub trait GameState: Clone {
     /// The type of moves that can be played from this state.
-    type Move: Clone + Debug;
+    type Move: Clone + Debug + PartialEq;
 
     /// An error type returned when attempting to apply an invalid move.
     type MoveError: Clone + Debug;

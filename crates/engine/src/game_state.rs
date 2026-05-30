@@ -4,13 +4,13 @@ use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 use crate::moves::Move;
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq)]
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum HeuristicVersion {
     V1, // baseline (no heuristic)
     V2, // improved heuristic
 }
 
-#[derive(Clone)]
+#[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ConnectFourState {
     pub current_player: MinMaxPlayer,
     pub player1_board: BitBoard,
