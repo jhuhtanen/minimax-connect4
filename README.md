@@ -13,3 +13,4 @@ Aineopintojen harjoitustyö: Algoritmit ja tekoäly (touko-kesäkuu), Monimuoto-
 
 [Week 1](./docs/weekly_reports/week_1.md)  
 [Week 2](./docs/weekly_reports/week_2.md)   
+[Week 3](./docs/weekly_reports/week_3.md)   
