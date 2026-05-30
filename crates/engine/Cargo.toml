@@ -9,3 +9,4 @@ pretty_assertions = "1"
 [dependencies]
 log = "0.4.29"
 ai = { path = "../ai" }
+serde = { version = "1.0.228", features = ["derive"] }
