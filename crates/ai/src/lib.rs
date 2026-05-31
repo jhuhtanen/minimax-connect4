@@ -334,12 +334,13 @@ mod tests {
 
     #[derive(Debug, Clone, Eq, PartialEq)]
     enum MockMove {
-        Left, Right
+        Left,
+        Right
     }
 
     #[derive(Debug, Clone)]
     struct MockMoveError {}
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, Eq, PartialEq, Hash)]
     struct MockState {
         current_player: MinMaxPlayer,
         remaining_depth: u32,
@@ -378,7 +379,7 @@ mod tests {
             state.remaining_depth -= 1;
             state.current_player = state.current_player.opponent();
             match mv {
-                MockMove::Left  => state.base_score += 1, // good for Max
+                MockMove::Left => state.base_score += 1, // good for Max
                 MockMove::Right => state.base_score -= 1, // good for Min
             }
             Ok(state)
@@ -402,7 +403,7 @@ mod tests {
         fn evaluate(&self) -> i32 {
             if let Some(outcome) = self.outcome() {
                 match outcome {
-                    Outcome::Win(min_max_player)  => match min_max_player {
+                    Outcome::Win(min_max_player) => match min_max_player {
                         MinMaxPlayer::Max => 1,
                         MinMaxPlayer::Min => -1,
                     }
@@ -431,7 +432,7 @@ mod tests {
 
         assert_eq!(context.depth, 1, "depth should be 1");
         assert_eq!(context.alpha, 15, "alpha should be {}", 15);
-        assert_eq!(context.beta, -25, "beta should be {}",-25);
+        assert_eq!(context.beta, -25, "beta should be {}", -25);
         assert_eq!(context.use_alpha_beta, true, "use_alpha_beta should be true");
     }
 
@@ -531,7 +532,7 @@ mod tests {
 
         for depth in 0..=4 {
             let no_pruning = minimax(&state, &SearchConfig::new(depth));
-            let pruning    = minimax(&state, &SearchConfig::new_alpha_beta(depth));
+            let pruning = minimax(&state, &SearchConfig::new_alpha_beta(depth));
 
             assert_eq!(no_pruning.score, pruning.score, "scores should be same at  depth = {}", depth);
             assert!(pruning.nodes_visited <= no_pruning.nodes_visited, "No pruning should have visited more nodes");
@@ -554,5 +555,32 @@ mod tests {
             pruning_state = pruning_state.with_move(&pruning_move).unwrap();
         }
         assert_eq!(no_pruning_state.outcome(), pruning_state.outcome(), "Outcomes should be the same");
+    }
+
+    #[test]
+    fn test_iterative_deepening_with_time_per_move_not_exceeded() {
+        let state = MockState::from(MinMaxPlayer::Max, 1, 0);
+        let config = SearchConfig::new_alpha_beta(9).with_time_ms(Some(10));
+        let start = Instant::now();
+        let result = iterative_minimax(&state, &config);
+        let elapsed = start.elapsed();
+        assert!(elapsed.as_millis() < 10, "One move should take less than 10 millis");
+    }
+
+    #[test]
+    fn test_iterative_deepening_vs_traditional_suggests_same_move() {
+        let iterative_state = MockState::from(MinMaxPlayer::Max, 4, 0);
+        let iterative_config = SearchConfig::new_alpha_beta(6).with_time_ms(Some(50));
+
+        let state = MockState::from(MinMaxPlayer::Max, 4, 0);
+        let config = SearchConfig::new_alpha_beta(6);
+
+        let iterative_result = iterative_minimax(&iterative_state, &iterative_config);
+        let result = minimax(&state, &config);
+
+        assert!(iterative_result.best_move.is_some(), "Should return best move");
+        assert!(result.best_move.is_some(), "Should return best move");
+        assert_eq!(result.best_move, iterative_result.best_move, "Results should be the same");
+
     }
 }

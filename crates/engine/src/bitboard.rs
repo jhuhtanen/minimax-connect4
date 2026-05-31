@@ -6,6 +6,14 @@ pub struct BitBoard {
     bits: u64,
 }
 
+/// Internal bit representation in Column major order
+//  6 13 20 27 34 41 48
+//  5 12 19 26 33 40 47
+//  4 11 18 25 32 39 46
+//  3 10 17 24 31 38 45
+//  2  9 16 23 30 37 44
+//  1  8 15 22 29 36 43
+//  0  7 14 21 28 35 42
 impl BitBoard {
     pub fn empty() -> Self {
         BitBoard {
@@ -13,7 +21,11 @@ impl BitBoard {
         }
     }
 
+    /// Uses the bitboard to check if any "direction" using the bit shifting produces
+    /// a value when compared to itself produces "pairs" (a value) 
+    ///
     pub fn has_won(&self) -> bool {
+        // "vertical", "horizontal", "diagonal top left - down right (\)", "diagonal bottom left - top right (/)"
         let directions = [1, 7, 6, 8];
 
         for shift in directions {
@@ -26,6 +38,7 @@ impl BitBoard {
         false
     }
 
+    /// The value of the bitboard
     pub fn bits(&self) -> u64 {
         self.bits
     }
@@ -34,6 +47,7 @@ impl BitBoard {
 	    self.bits = self.bits | (1 << bit);
     }
 
+    /// Checks if the bit at column, row is set
     #[inline]
     pub(crate) fn bit_at(&self, col: u8, row: u8) -> bool {
         let idx = Self::bit_index(col, row);
@@ -125,11 +139,12 @@ mod tests {
         let tokens: [[u8; 2]; 4] = [[0, 0], [0, 1], [0, 2], [0, 3]];
         set_token_positions(&mut bitboard, tokens);
         assert!(bitboard.has_won(), "Board should have won state");
+        assert_eq!(bitboard.bits(),  15, "Board state should be 15");
     }
 
     fn set_token_positions(bitboard: &mut BitBoard, tokens: [[u8; 2]; 4]) {
         tokens.iter().for_each(|&coord| {
-            let bit_to_set = coord[1] * BOARD_WIDTH + coord[0];
+            let bit_to_set = BitBoard::bit_index(coord[0], coord[1]);
             bitboard.with_bit_set(bit_to_set);
         });
     }
@@ -141,6 +156,7 @@ mod tests {
         let tokens: [[u8; 2]; 4] = [[0, 0], [0, 1], [0, 4], [0, 5]];
         set_token_positions(&mut bitboard, tokens);
         assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+        assert_eq!(bitboard.bits(),  51, "Board state should be 51");
     }
 
     #[test]
@@ -149,7 +165,9 @@ mod tests {
         // tokens in row 3 connected with columns 1,2,3,4 forming a win state
         let tokens: [[u8; 2]; 4] = [[1, 3], [2, 3], [3, 3], [4, 3]];
         set_token_positions(&mut bitboard, tokens);
+        let expected_value = (1 << 10) + (1 << 17) + (1 << 24) + (1 << 31);
         assert!(bitboard.has_won(), "Board should have won state");
+        assert_eq!(bitboard.bits(), expected_value, "Board state should be {}", expected_value);
     }
 
     #[test]
@@ -158,8 +176,9 @@ mod tests {
         // tokens in row 3 disconnected with row 3 being empty, not forming a win state
         let tokens: [[u8; 2]; 4] = [[1, 3], [2, 3], [4, 3], [5, 3]];
         set_token_positions(&mut bitboard, tokens);
-
+        let expected_value = (1 << 10) + (1 << 17) + (1 << 31) + (1 << 38);
         assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+        assert_eq!(bitboard.bits(),  expected_value, "Board state should be {}", expected_value);
     }
 
     #[test]
@@ -169,7 +188,9 @@ mod tests {
         // forming a win state
         let tokens: [[u8; 2]; 4] = [[1, 1], [2, 2], [3, 3], [4, 4]];
         set_token_positions(&mut bitboard, tokens);
+        let expected_value = (1 << 8) + (1 << 16) + (1 << 24) + (1 << 32);
         assert!(bitboard.has_won(), "Board should have won state");
+        assert_eq!(bitboard.bits(),  expected_value, "Board state should be {}", expected_value);
     }
 
     #[test]
@@ -179,7 +200,9 @@ mod tests {
         // not forming a win state
         let tokens: [[u8; 2]; 4] = [[1, 1], [2, 2], [4, 4], [5, 5]];
         set_token_positions(&mut bitboard, tokens);
+        let expected_value:u64 = (1 << 8) + (1 << 16) + (1 << 32) + (1 << 40);
         assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+        assert_eq!(bitboard.bits(),  expected_value, "Board state should be {}", expected_value);
     }
 
     #[test]
@@ -189,7 +212,9 @@ mod tests {
         // tokens on column 3 rows 0 and 1
         let tokens: [[u8; 2]; 4] = [[2, 4], [2, 5], [3, 0], [3, 1]];
         set_token_positions(&mut bitboard, tokens);
+        let expected_value:u64 = (1 << 18) + (1 << 19) + (1 << 21) + (1 << 22);
         assert_eq!(bitboard.has_won(), false, "Board should have not have a won state");
+        assert_eq!(bitboard.bits(),  expected_value, "Board state should be {}", expected_value);
     }
 
     #[test]

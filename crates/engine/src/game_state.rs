@@ -263,6 +263,7 @@ impl ConnectFourState {
 mod tests {
     use super::*;
     use pretty_assertions::{assert_eq};
+    use ai::{minimax, SearchConfig};
 
     #[cfg(test)]
     impl ConnectFourState {
@@ -414,6 +415,44 @@ mod tests {
         assert_eq!(game_state.outcome(), Some(Outcome::Draw), "Game shouldn't have a winner");
         assert!(game_state.is_draw(), "Game should be a draw");
         assert_eq!(game_state.legal_moves().iter().count(), 0, "Board should be full");
+    }
+
+    #[test]
+    fn test_outcome_max_wins() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+
+        // column, row
+        let max_tokens = [[0, 0], [1, 0], [2, 0], [3, 0]];
+        max_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player1_board.with_bit_set(bit_index);
+        });
+
+        assert_eq!(Some(Outcome::Win(MinMaxPlayer::Max)), game.outcome(), "Max should have won");
+    }
+
+    #[test]
+    fn test_outcome_min_wins() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Min);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+
+        // column, row
+        let min_tokens = [[0, 0], [0, 1], [0, 2], [0, 3]];
+        min_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player2_board.with_bit_set(bit_index);
+        });
+
+        assert_eq!(Some(Outcome::Win(MinMaxPlayer::Min)), game.outcome(), "Min should have won");
+    }
+
+    #[test]
+    fn test_outcome_heuristic_evaluate() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+
+        assert_eq!(0, game.evaluate(), "Evaluate should have been 0 for empty board");
     }
 
     #[test]
