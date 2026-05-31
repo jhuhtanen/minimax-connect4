@@ -473,7 +473,7 @@ mod tests {
 
     #[test]
     fn depth_one_max_should_play_left() {
-        let mut state = MockState::from(MinMaxPlayer::Max, 1, 0);
+        let state = MockState::from(MinMaxPlayer::Max, 1, 0);
         let mv = minimax(&state, &SearchConfig::new(1));
         assert!(mv.best_move.is_some());
         assert_eq!(mv.best_move.unwrap(), MockMove::Left, "Max should have chosen left");

@@ -26,6 +26,7 @@ pub enum MoveError {
 }
 
 const COLUMN_WEIGHTS: [u64;7] = [2, 3, 5, 7, 5, 3, 2];
+const MOVE_ORDER: [u8; 7] = [3, 2, 4, 1, 5, 0, 6];
 const THREE_IN_ROW_WEIGHT:i32 = 100;
 const THREE_IN_ROW_WEIGHT_OPPONENT:i32 = 120;
 const TWO_IN_ROW_WEIGHT:i32 = 50;
@@ -44,9 +45,10 @@ impl GameState for ConnectFourState {
     }
 
     fn legal_moves(&self) -> Vec<Self::Move> {
-        (0..BOARD_WIDTH)
-            .filter(|&col| self.heights[col as usize] < BOARD_HEIGHT)
-            .map(|col| { Move { column: col}})
+        MOVE_ORDER
+            .iter()
+            .filter(|&col| self.heights[*col as usize] < BOARD_HEIGHT)
+            .map(|col| { Move { column: *col}})
             .collect()
     }
 
@@ -302,7 +304,7 @@ mod tests {
     #[test]
     fn test_initial_state() {
         let game_state = ConnectFourState::new(MinMaxPlayer::Max);
-        let expected_legal_moves = vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8]
+        let expected_legal_moves = MOVE_ORDER
             .iter()
             .map(|&x| Move { column: x })
             .collect::<Vec<_>>();
@@ -312,8 +314,9 @@ mod tests {
     #[test]
     fn test_fill_first_column() {
         let game_state = fill_column(ConnectFourState::new(MinMaxPlayer::Max), 0u8);
-        let expected_legal_moves = vec![1u8, 2u8, 3u8, 4u8, 5u8, 6u8]
+        let expected_legal_moves = MOVE_ORDER
             .iter()
+            .filter(|&x| *x != 0)
             .map(|&x| Move { column: x })
             .collect::<Vec<_>>();
         assert_eq!(game_state.is_column_legal(0u8), false, "First column should be full");
@@ -486,6 +489,7 @@ mod tests {
             .for_each(|x| {
                 assert!(fours.contains(&x), "Four in rows should contain {:?}", &x);
             });
+        assert!(game.heuristic_v2() > TWO_IN_ROW_WEIGHT, "Heuristic score should be higher than {}", TWO_IN_ROW_WEIGHT);
     }
 
     #[test]
@@ -515,6 +519,7 @@ mod tests {
             .for_each(|x| {
                 assert!(fours.contains(&x), "Four in rows should contain {:?}", &x);
             });
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT);
     }
 
     #[test]
@@ -544,6 +549,7 @@ mod tests {
             .iter()
             .count();
         assert_eq!(three_in_row_actual, 2, "Max should have two three in rows");
+        assert!(game.heuristic_v2() > TWO_IN_ROW_WEIGHT, "Heuristic score should be higher than {}", TWO_IN_ROW_WEIGHT)
     }
 
     #[test]
@@ -581,6 +587,7 @@ mod tests {
             .count();
         assert_eq!(three_in_row_actual, 3, "Min should have 3 three in rows");
         assert_eq!(two_in_row_actual, 9, "Min should have 9 two in rows");
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT)
     }
 
     #[test]
@@ -610,6 +617,7 @@ mod tests {
             .iter()
             .count();
         assert_eq!(three_in_row_actual, 4, "Max should have four three in rows");
+        assert!(game.heuristic_v2() > TWO_IN_ROW_WEIGHT, "Heuristic score should be higher than {}", TWO_IN_ROW_WEIGHT);
     }
 
     #[test]
@@ -647,5 +655,58 @@ mod tests {
             .count();
         assert_eq!(three_in_row_actual, 3, "Min should have 3 three in rows");
         assert_eq!(twos_in_row_actual, 13, "Min should have 13 twos in rows");
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT);
+    }
+
+    #[test]
+    fn test_mixed_four_in_row_window() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        let mixed_rows_max = (2, 1, 1); // 2 for max, 1 for min, 1 empty space
+        let one_in_rows_max = (1, 0, 3); // 2 for max, 1 for min, 1 empty space
+        let mixed_rows_min = (1, 2, 1); // 1  for max, 1 for min, 1 empty space
+        // +-------+
+        // |.......|
+        // |.X...O.|
+        // |..O..X.|
+        // |...X.O.|
+        // |.......|
+        // |.......|
+        // +-------+
+        //  0123456
+        // column, row
+        let max_tokens = [[1, 4], [3, 2], [5, 3]];
+        let min_tokens = [[2, 3], [5, 4], [5, 2]];
+        max_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player1_board.with_bit_set(bit_index);
+        });
+        min_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player2_board.with_bit_set(bit_index);
+        });
+        let fours = game.collect_four_in_rows();
+        let mixed_max_actual = fours
+            .iter()
+            .filter(|&x| { *x == mixed_rows_max })
+            .collect::<Vec<_>>()
+            .iter()
+            .count();
+        let mixed_min_actual = fours
+            .iter()
+            .filter(|&x| { *x == mixed_rows_min })
+            .collect::<Vec<_>>()
+            .iter()
+            .count();
+        let one_in_rows_max_actual = fours
+            .iter()
+            .filter(|&x| { *x == one_in_rows_max })
+            .collect::<Vec<_>>()
+            .iter()
+            .count();
+        assert_eq!(mixed_max_actual, 2, "Max should have 2 mixed rows");
+        assert_eq!(mixed_min_actual, 2, "Min should have 2 mixed rows");
+        assert_eq!(one_in_rows_max_actual, 14, "Max should have 14 one in rows");
+        assert_eq!(game.heuristic_v2(), 4, "Heuristic score should be 4 for Max");
+
     }
 }

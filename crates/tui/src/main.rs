@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::io::{self, Write};
 use std::str::FromStr;
 use std::thread;
-use ai::{minimax, GameState, MinMaxPlayer, Outcome, SearchConfig};
+use ai::{GameState, MinMaxPlayer, Outcome, SearchConfig};
 use engine::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 use engine::game_state::{ConnectFourState, HeuristicVersion};
 use engine::moves::Move;
