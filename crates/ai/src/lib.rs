@@ -113,6 +113,26 @@ impl SearchConfig {
 const WIN_SCORE:  i32 = 1_000_000;
 const LOSS_SCORE: i32 = -1_000_000;
 
+/// Searches a game state using iterative deepening Minimax.
+///
+/// The search is performed repeatedly with increasing depth limits,
+/// starting from depth 1 and continuing until the maximum search depth
+/// specified in `base_config` is reached.
+///
+/// A shared transposition table is reused between iterations, allowing
+/// information discovered in shallow searches to improve move ordering
+/// and reduce the amount of work required in deeper searches.
+///
+/// # Parameters
+///
+/// * `state` - Root position to evaluate.
+/// * `base_config` - Search configuration containing the maximum search
+///   depth and evaluation settings.
+///
+/// # Returns
+///
+/// The result of the deepest completed search, including the selected
+/// move and its evaluation score.
 pub fn iterative_minimax<G: GameState + Eq + Hash>(state: &G,
                             base_config: &SearchConfig, ) -> SearchResult<G::Move> {
     let mut cache: HashMap<G, G::Move> = HashMap::new();
@@ -151,6 +171,26 @@ pub fn iterative_minimax<G: GameState + Eq + Hash>(state: &G,
     best_result.expect("iterative_minimax: no depth completed")
 }
 
+/// Searches the game tree using Minimax with alpha-beta pruning and a
+/// transposition table.
+///
+/// The function evaluates the given game state and returns the best move
+/// together with its score. Previously evaluated positions are stored in
+/// `cache` and reused when encountered again, reducing the amount of
+/// repeated search work.
+///
+/// The cache maps game states to the best move found for that position and
+/// is also used to improve move ordering in subsequent searches.
+///
+/// # Parameters
+///
+/// * `state` - Root position to evaluate.
+/// * `config` - Search configuration, including depth limits and evaluation settings.
+/// * `cache` - Transposition table used for move caching and move ordering.
+///
+/// # Returns
+///
+/// A [`SearchResult`] containing the selected move and its evaluation.
 fn minimax_with_cache<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig,
                                     cache: &mut HashMap<G, G::Move>, ) -> SearchResult<G::Move>{
 
@@ -247,6 +287,25 @@ fn minimax_with_cache<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
 }
 
+/// Searches a game tree using the Minimax algorithm with alpha-beta pruning.
+///
+/// The search explores legal moves from the given game state and assumes
+/// that both players play optimally. Terminal positions are evaluated
+/// directly, while non-terminal positions are scored using the game's
+/// evaluation function when the search depth limit is reached.
+///
+/// Alpha-beta pruning is used to avoid exploring branches that cannot
+/// affect the final decision, reducing the number of evaluated positions
+/// compared to a naive Minimax search.
+///
+/// # Parameters
+///
+/// * `state` - Root position to evaluate.
+/// * `config` - Search configuration containing depth limits and evaluation settings.
+///
+/// # Returns
+///
+/// A [`SearchResult`] containing the best move found and its evaluation score.
 pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
     let start = Instant::now();
 

@@ -22,7 +22,7 @@ impl BitBoard {
     }
 
     /// Uses the bitboard to check if any "direction" using the bit shifting produces
-    /// a value when compared to itself produces "pairs" (a value) 
+    /// a value when compared to itself produces "pairs" (a value)
     ///
     pub fn has_won(&self) -> bool {
         // "vertical", "horizontal", "diagonal top left - down right (\)", "diagonal bottom left - top right (/)"

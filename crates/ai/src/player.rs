@@ -7,6 +7,15 @@ use serde::{Deserialize, Serialize};
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MinMaxPlayer { Max, Min }
 
+/// Represents a player in a two-player zero-sum game.
+///
+/// The minimax algorithm is implemented generically and operates on any
+/// game whose player type implements this trait. Implementations provide
+/// a way to switch turns between players and get a symbol
+/// for displaying game states.
+///
+/// Typical implementations are game-specific enums such as
+/// `ConnectFourPlayer` or `TicTacToePlayer`.
 pub trait Player : Clone {
     /// Returns the opponent of this player.
     fn opponent(self) -> Self;
