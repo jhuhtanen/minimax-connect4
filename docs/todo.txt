@@ -1,14 +1,17 @@
 [X] TUI, check if the console flush can be made so that output doesn't scroll.
 [X] TUI, check if the board visualisation can use some colors, even if ASCII,
-[ ] BitBoard, double check the test with allowd values actually align with bitshifted values.
+[X] BitBoard, double check the test with allowed values actually align with bitshifted values.
 [X] General: Check what test coverage tool could be used.
 [X] General: Integrate the test coverage tool.
 [X] General: Write the specification document in md.
-[ ] Engine: Design how the algoritm players connect to the game.
+[X] Engine: Design how the algorithm players connect to the game.
 [X] BitBoard: bit_index still has some debug_asserts. Remove if possible.
-[ ] Engine: Should the starting player matter? Should there be some tests? 
-[X] General: Check how the panicing tests should be written if something used in test panics.
+[X] Engine: Should the starting player matter? Should there be some tests?
+[X] General: Check how the panicking tests should be written if something used in test panics.
 [X] TUI: should the TUI loop be based on few simple states rather than one big loop with ifs?
-[ ] Engine: game_state, token_at metod doesn't have unit tests. 
-[ ] Engine; game_state, winner method doesn't have unit tests.
-[ ]  
+[X] Engine: game_state, token_at method doesn't have unit tests.
+[X] Engine: game_state, winner method doesn't have unit tests.
+[ ] General: Start implementation documentation
+[ ] General: Start testing documentation
+[ ] General: Heuristic should be symmetric. Remove also the explicit column weight.
+[ ]
