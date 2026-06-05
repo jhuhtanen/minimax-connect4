@@ -4,7 +4,7 @@ This document describes the requirements for "TKT20010 Aineopintojen harjoitusty
 
 ## Programming language
 
-The project is written in **Rust**. It uses language features up to **1.85.0** (rustc 1.85.0). There might be some helper scripts to run / execute project code that can be in other scripting languages like bash.
+The project is written in **Rust**. It uses language features up to **1.87.0** (rustc 1.87.0). There might be some helper scripts to run / execute project code that can be in other scripting languages like bash.
 
 ## Implemented algorithm
 

@@ -26,22 +26,74 @@ the test coverage locally you need to install the llvm-cov extension. This can b
 
 Please, note that llvm-cov requires at least `rustc 1.87.0`.
 
-## Running 
+## Building 
 Building the project from workspace root can be done with `cargo build`   
 
 Workspace root is the project root when cloned from git. Running build will crate a target binary with debug
 settings under target/debug. Currently, there are two binaries: tui which is the Text Based UI to run 
 the game and benchmark which is a commandline tool to simulate AI playing multiple times in row
-generating a run report. tui and benchmark are executables you can run from command line.
+generating a run report. Tui and benchmark are executables you can run from command line.
 
 Release version can be built with `cargo build --release`.  
 
-This will create a target binary without any debug information under target/release.
+This will create a target binary without any debug information under target/release. The executable can be run (depending
+on your OS) by executing the output file under release folder. NOTE: make sure you have execute / run permissions
+for the binary.
 
-[To be completed more later...]
+## Running 
+### Unit tests
+Unit tests can be run with `cargo test`. It will output the test results to the console.
+### Code coverage
+Code coverage can be run with a script `run_code_coverage_html.sh` in project root. Or if you don't have bash compatible
+interpreter then with command   
+`cargo llvm-cov --html --open`  
 
+This will run the tests, create a html output and tries to open it with default program associated to the type. (usually a browser of some sort)
+
+### Text based UI (TUI)
+#### Description
+Tui is a very simple text based UI for the ***Connect Four*** game. It allows two types of players (Human or AI) to play against each other. If one of the players
+is Human then input from user is expected. Input is given with the keyboard using column numbers from 0 to 6. If one of the 
+players is AI, then some additional settings are needed. If 2 AIs are selected, they will autoplay against each other.
+
+The extra settings for AI: 
+* ***Heuristic version.*** Options: v1 and v2. v1 means, there's no heuristic function used, so game state value on the max depth isn't being valuated by the heuristic function.
+v2 means a simple heuristic evaluation at max depth will be done. This should (in theory) try to guide the AI selecting a board state  more favourable to it.
+* ***AI Mode.*** Options: Fixed Depth or Time Limited. Fixed Depth means the search is limited to a fixed depth. It will try to find a best solutions but doesn't go beyond this given depth. 
+Time Limited means, AI turn is limited by time in milliseconds. This method uses iterative deepening and does one depth at the time until the  time budget is exhausted and returns 
+the best result found so far. Please note: The time constraint resolution isn't perfect as it estimates time remaining, and can potentially overshoot.
+* Time limit. TIme limit in milliseconds if you chose Time Limited search. Good values to start with would be 50ms.
+* Depth limit. If Fixed depth is used, the max depth search will go to. Depending on your hardware, starting values under 10 are good.
+
+You need to build the binary first and go to `target/[debug/release]` folder and run the `tui` executable. On Win64 it's `tui.exe` and on MacOS
+it's `tui`
+
+You can also build and run it by specifying the project (and type) with cargo with command `cargo run --bin tui`
+
+### Benchmark tool
+#### Description
+Benchmark tool is a command line tool to run two versions of AI against each other. The benchmark will collect some data form all the runs
+and create a json formatted report of the run. It supports various command line arguments to create different type of runs.
+
+Options:
+* --help (Outputs the help)
+* --games (Number of games run, default 50)
+* --time-ms (Optional argument if time limited search is used, enables iterative deepening!)
+* --output (Output file path, default results.json)
+* --alpha-beta (If alpha beta pruning should be used)
+* --heuristic-min (Heuristic version of Min (the minimizer), default: v1)
+* --heuristic-max (Heuristic version of Max (the maximizer), default: v1)
+
+Under project root there are some bash scripts like `run_benchmark_v2.sh` which run the tool for 50 games having
+both AI players using heuristic v2 with max depth of 6. Inspection of the parameters give you good indication how to use the tool.
 
 ### Other
 #### Other useful command and tips:
 `rustup toolchain list` Lists your current toolchains if you have already existing Rust installations.  
 `rustup default [your toolchain name from list]` If you want to switch your active (default) toolchain version.
+
+
+### TLDR version
+1. Install rust (rustup)
+2. Build it with `cargo build --release`
+3. Under `target/release` folder , either run tui or benchmark binaries.

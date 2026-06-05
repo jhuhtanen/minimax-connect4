@@ -7,6 +7,7 @@ use ai::{GameState, MinMaxPlayer, Outcome, SearchConfig};
 use engine::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 use engine::game_state::{ConnectFourState, HeuristicVersion};
 use engine::moves::Move;
+use itertools::{sorted, Itertools};
 
 pub const ANSI_RESET: &str = "\u{001B}[0m";
 pub const ANSI_RED: &str = "\u{001B}[31m";
@@ -124,58 +125,30 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     let mut yellow_heuristic = None;
     let mut ai_mode = None;
     let mut time_ms : Option<u64> = None;
+    let mut search_depth = None;
     while red_player.is_none() || yellow_player.is_none() {
         println!("Select Red player: [0 = Human], [1 = AI]");
-        if let Some(red) = read_column() {
-            red_player = match red {
-                0 => Some(PlayerType::Human),
-                1 => Some(PlayerType::AI),
-                _ => None
-            };
-        }
+        parse_player_type(red_player);
+
         println!("Select Yellow player: [0 = Human], [1 = AI]");
-        if let Some(yellow) = read_column() {
-            yellow_player = match yellow {
-                0 => Some(PlayerType::Human),
-                1 => Some(PlayerType::AI),
-                _ => None
-            };
-        }
+        parse_player_type(yellow_player);
     };
     if red_player == Some(PlayerType::AI) {
         while red_heuristic.is_none() {
             println!("Select Red player heuristic: [0 = v1], [1 = v2]");
-            if let Some(red) = read_column() {
-                red_heuristic = match red {
-                    0 => Some(HeuristicVersion::V1),
-                    1 => Some(HeuristicVersion::V2),
-                    _ => None
-                };
-            }
+            parse_heuristic(red_heuristic);
         }
     }
     if yellow_player == Some(PlayerType::AI) {
         while yellow_heuristic.is_none() {
             println!("Select Yellow player heuristic: [0 = v1], [1 = v2]");
-            if let Some(red) = read_column() {
-                yellow_heuristic = match red {
-                    0 => Some(HeuristicVersion::V1),
-                    1 => Some(HeuristicVersion::V2),
-                    _ => None
-                };
-            }
+            parse_heuristic(yellow_heuristic);
         }
     }
     if yellow_player == Some(PlayerType::AI) || red_player == Some(PlayerType::AI) {
         while ai_mode.is_none() {
             println!("AI mode: [0 = Fixed Depth], [1 = Time Limited]");
-            if let Some(col) = read_column() {
-                ai_mode = match col {
-                    0 => Some(AiMode::FixedDepth),
-                    1 => Some(AiMode::TimeLimited),
-                    _ => None
-                };
-            }
+            parse_ai_mode(ai_mode);
         }
     }
     if ai_mode == Some(AiMode::TimeLimited) {
@@ -186,6 +159,15 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
                 game_settings.search_config.depth = 9;
             };
         }
+    }
+    else if ai_mode == Some(AiMode::FixedDepth) {
+        while search_depth.is_none() {
+            println!("Search depth: (max)");
+            if let Some(col) = read_value::<u32>() {
+                search_depth = Some(col);
+            };
+        }
+        game_settings.search_config.depth = search_depth.unwrap();
     }
     game_settings.color_to_type.insert(PlayerColor::Red, red_player.unwrap_or(PlayerType::Human));
     game_settings.color_to_type.insert(PlayerColor::Yellow, yellow_player.unwrap_or(PlayerType::Human));
@@ -202,6 +184,36 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     game_settings.search_config.time_ms = time_ms;
 
     *state = State::Running;
+}
+
+fn parse_ai_mode(mut ai_mode: Option<AiMode>) {
+    if let Some(col) = read_column() {
+        ai_mode = match col {
+            0 => Some(AiMode::FixedDepth),
+            1 => Some(AiMode::TimeLimited),
+            _ => None
+        };
+    }
+}
+
+fn parse_heuristic(mut heuristic: Option<HeuristicVersion>) {
+    if let Some(col) = read_column() {
+        heuristic = match col {
+            0 => Some(HeuristicVersion::V1),
+            1 => Some(HeuristicVersion::V2),
+            _ => None
+        };
+    }
+}
+
+fn parse_player_type(mut player: Option<PlayerType>) {
+    if let Some(col) = read_column() {
+        player = match col {
+            0 => Some(PlayerType::Human),
+            1 => Some(PlayerType::AI),
+            _ => None
+        };
+    }
 }
 
 fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &mut State, game_settings: &GameSettings) {
@@ -234,14 +246,12 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
 
     println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player(), &game_settings),
              game_settings.minimax_to_player[&game.current_player()]);
-    println!(
-        "Available columns: {:?}",
-        game
-            .legal_moves()
-            .iter()
-            .map(|m| m.column())
-            .collect::<Vec<_>>()
-    );
+    let sorted_moves = sorted(game
+        .legal_moves()
+        .iter()
+        .map(|m| m.column())
+        .collect::<Vec<_>>());
+    println!("Available columns: {:?}", sorted_moves.collect::<Vec<_>>());
     // clear previous error
     ui.error_message = None;
     // crate move based on the current player
@@ -275,7 +285,6 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
             } else {
                 ai::minimax(game, &game_settings.search_config)
             };
-            //let result = minimax(game, &game_settings.search_config);
             result.best_move.unwrap()
         }
     };
