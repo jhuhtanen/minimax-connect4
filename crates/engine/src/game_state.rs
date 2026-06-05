@@ -25,12 +25,11 @@ pub enum MoveError {
     ColumnFull(u8),
 }
 
-const COLUMN_WEIGHTS: [u64;7] = [2, 3, 5, 7, 5, 3, 2];
 const MOVE_ORDER: [u8; 7] = [3, 2, 4, 1, 5, 0, 6];
 const THREE_IN_ROW_WEIGHT:i32 = 100;
-const THREE_IN_ROW_WEIGHT_OPPONENT:i32 = 120;
+const THREE_IN_ROW_WEIGHT_OPPONENT:i32 = 100;
 const TWO_IN_ROW_WEIGHT:i32 = 50;
-const TWO_IN_ROW_WEIGHT_OPPONENT:i32 = 60;
+const TWO_IN_ROW_WEIGHT_OPPONENT:i32 = 50;
 const ONE_IN_ROW_WEIGHT:i32 = 1;
 const ONE_IN_ROW_WEIGHT_OPPONENT:i32 = 1;
 
@@ -163,19 +162,7 @@ impl ConnectFourState {
     
     fn heuristic_v2(&self) -> i32 {
         let mut score = 0;
-
-        for col in 0 .. BOARD_WIDTH {
-            for row in 0 .. BOARD_HEIGHT {
-                if let Some(player) = self.token_at(col, row) {
-                    if player == MinMaxPlayer::Max {
-                        score += COLUMN_WEIGHTS[col as usize] as i32;
-                    } else if player == MinMaxPlayer::Min {
-                        score -= COLUMN_WEIGHTS[col as usize] as i32;
-                    }
-                }
-            }
-        }
-
+        
         // horizontal
         for row in 0..BOARD_HEIGHT {
             for col in 0..(BOARD_WIDTH - 3) {
@@ -780,7 +767,7 @@ mod tests {
         assert_eq!(mixed_max_actual, 2, "Max should have 2 mixed rows");
         assert_eq!(mixed_min_actual, 2, "Min should have 2 mixed rows");
         assert_eq!(one_in_rows_max_actual, 14, "Max should have 14 one in rows");
-        assert_eq!(game.heuristic_v2(), 4, "Heuristic score should be 4 for Max");
+        assert_eq!(game.heuristic_v2(), 2, "Heuristic score should be 2 for Max");
     }
 
     #[test]
