@@ -7,7 +7,7 @@ use ai::{GameState, MinMaxPlayer, Outcome, SearchConfig};
 use engine::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 use engine::game_state::{ConnectFourState, HeuristicVersion};
 use engine::moves::Move;
-use itertools::{sorted, Itertools};
+use itertools::{sorted};
 
 pub const ANSI_RESET: &str = "\u{001B}[0m";
 pub const ANSI_RED: &str = "\u{001B}[31m";
@@ -124,48 +124,42 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     let mut red_heuristic = None;
     let mut yellow_heuristic = None;
     let mut ai_mode = None;
-    let mut time_ms : Option<u64> = None;
     let mut search_depth = None;
     while red_player.is_none() || yellow_player.is_none() {
         println!("Select Red player: [0 = Human], [1 = AI]");
-        parse_player_type(red_player);
+        parse_player_type(&mut red_player);
 
         println!("Select Yellow player: [0 = Human], [1 = AI]");
-        parse_player_type(yellow_player);
+        parse_player_type(&mut yellow_player);
     };
     if red_player == Some(PlayerType::AI) {
         while red_heuristic.is_none() {
             println!("Select Red player heuristic: [0 = v1], [1 = v2]");
-            parse_heuristic(red_heuristic);
+            parse_heuristic(&mut red_heuristic);
         }
     }
     if yellow_player == Some(PlayerType::AI) {
         while yellow_heuristic.is_none() {
             println!("Select Yellow player heuristic: [0 = v1], [1 = v2]");
-            parse_heuristic(yellow_heuristic);
+            parse_heuristic(&mut yellow_heuristic);
         }
     }
     if yellow_player == Some(PlayerType::AI) || red_player == Some(PlayerType::AI) {
         while ai_mode.is_none() {
             println!("AI mode: [0 = Fixed Depth], [1 = Time Limited]");
-            parse_ai_mode(ai_mode);
+            parse_ai_mode(&mut ai_mode);
         }
     }
     if ai_mode == Some(AiMode::TimeLimited) {
-        while time_ms.is_none() {
+        while game_settings.search_config.time_ms.is_none() {
             println!("Time limit: (ms)");
-            if let Some(col) = read_value::<u64>() {
-                time_ms = Some(col);
-                game_settings.search_config.depth = 9;
-            };
+            parse_time_limit(game_settings);
         }
     }
     else if ai_mode == Some(AiMode::FixedDepth) {
         while search_depth.is_none() {
             println!("Search depth: (max)");
-            if let Some(col) = read_value::<u32>() {
-                search_depth = Some(col);
-            };
+            parse_search_depth(&mut search_depth);
         }
         game_settings.search_config.depth = search_depth.unwrap();
     }
@@ -181,14 +175,26 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
                                         AiSetting { color: PlayerColor::Yellow, player: MinMaxPlayer::Min, heuristic: yellow_heuristic.unwrap() });
     }
     game_settings.minimax_to_player.insert(MinMaxPlayer::Min, PlayerColor::Yellow);
-    game_settings.search_config.time_ms = time_ms;
 
     *state = State::Running;
 }
 
-fn parse_ai_mode(mut ai_mode: Option<AiMode>) {
+fn parse_search_depth(search_depth: &mut Option<u32>) {
+    if let Some(col) = read_value::<u32>() {
+        *search_depth = Some(col);
+    };
+}
+
+fn parse_time_limit(game_settings: &mut GameSettings) {
+    if let Some(col) = read_value::<u64>() {
+        game_settings.search_config.depth = 9;
+        game_settings.search_config.time_ms = Some(col);
+    };
+}
+
+fn parse_ai_mode(ai_mode: &mut Option<AiMode>) {
     if let Some(col) = read_column() {
-        ai_mode = match col {
+        *ai_mode = match col {
             0 => Some(AiMode::FixedDepth),
             1 => Some(AiMode::TimeLimited),
             _ => None
@@ -196,9 +202,9 @@ fn parse_ai_mode(mut ai_mode: Option<AiMode>) {
     }
 }
 
-fn parse_heuristic(mut heuristic: Option<HeuristicVersion>) {
+fn parse_heuristic(heuristic: &mut Option<HeuristicVersion>) {
     if let Some(col) = read_column() {
-        heuristic = match col {
+        *heuristic = match col {
             0 => Some(HeuristicVersion::V1),
             1 => Some(HeuristicVersion::V2),
             _ => None
@@ -206,9 +212,9 @@ fn parse_heuristic(mut heuristic: Option<HeuristicVersion>) {
     }
 }
 
-fn parse_player_type(mut player: Option<PlayerType>) {
+fn parse_player_type(player: &mut Option<PlayerType>) {
     if let Some(col) = read_column() {
-        player = match col {
+        *player = match col {
             0 => Some(PlayerType::Human),
             1 => Some(PlayerType::AI),
             _ => None
@@ -217,43 +223,21 @@ fn parse_player_type(mut player: Option<PlayerType>) {
 }
 
 fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &mut State, game_settings: &GameSettings) {
+    // let's start by redrawing
     redraw_screen(&game, &ui);
-
-    if let Some(outcome) = game.outcome() {
-        match outcome {
-            Outcome::Win(winner) => {
-                let player_color = game_settings.minimax_to_player[&winner];
-                let player_type = game_settings.color_to_type[&player_color];
-                let type_presentation= match player_type {
-                    PlayerType::Human => {
-                        format!("{:?}", player_type)
-                    },
-                    PlayerType::AI => {
-                        format!("{:?}, heuristic: {:?}", player_type, game_settings.ai_setting.get(&winner).unwrap().heuristic)
-                    }
-                };
-
-                println!("Player {:?} ({:?}) wins!", represent_player(&winner, &game_settings), type_presentation);
-            },
-            Outcome::Draw => {
-                println!("It's a draw!");
-            }
-        };
-        wait_for_enter();
-        handle_state_change(state);
+    // if we have an outcome
+    if handle_outcome(&game.outcome(), state, &game_settings) {
         return;
     }
 
     println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player(), &game_settings),
              game_settings.minimax_to_player[&game.current_player()]);
-    let sorted_moves = sorted(game
-        .legal_moves()
-        .iter()
-        .map(|m| m.column())
-        .collect::<Vec<_>>());
-    println!("Available columns: {:?}", sorted_moves.collect::<Vec<_>>());
+
+    present_legal_moves(game);
+
     // clear previous error
     ui.error_message = None;
+
     // crate move based on the current player
     let player_color = game_settings.minimax_to_player[&game.current_player()];
     let mv = match game_settings.color_to_type[&player_color] {
@@ -300,6 +284,43 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
     if both_players_ai(&game_settings) {
         thread::sleep(core::time::Duration::from_millis(100));
     }
+}
+
+fn present_legal_moves(game: &ConnectFourState) {
+    let sorted_moves = sorted(game
+        .legal_moves()
+        .iter()
+        .map(|m| m.column())
+        .collect::<Vec<_>>());
+    println!("Available columns: {:?}", sorted_moves.collect::<Vec<_>>());
+}
+
+fn handle_outcome(outcome: &Option<Outcome>, state: &mut State, game_settings: &&GameSettings) -> bool {
+    if let Some(outcome) = outcome {
+        match outcome {
+            Outcome::Win(winner) => {
+                let player_color = game_settings.minimax_to_player[&winner];
+                let player_type = game_settings.color_to_type[&player_color];
+                let type_presentation = match player_type {
+                    PlayerType::Human => {
+                        format!("{:?}", player_type)
+                    },
+                    PlayerType::AI => {
+                        format!("{:?}, heuristic: {:?}", player_type, game_settings.ai_setting.get(&winner).unwrap().heuristic)
+                    }
+                };
+
+                println!("Player {:?} ({:?}) wins!", represent_player(&winner, &game_settings), type_presentation);
+            },
+            Outcome::Draw => {
+                println!("It's a draw!");
+            }
+        };
+        wait_for_enter();
+        handle_state_change(state);
+        return true;
+    }
+    false
 }
 
 fn both_players_ai(game_settings: &GameSettings) -> bool {
