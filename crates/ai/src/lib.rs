@@ -640,6 +640,27 @@ mod tests {
         assert!(iterative_result.best_move.is_some(), "Should return best move");
         assert!(result.best_move.is_some(), "Should return best move");
         assert_eq!(result.best_move, iterative_result.best_move, "Results should be the same");
+    }
 
+    #[test]
+    fn test_mock_state_evaluate() {
+        let state = MockState::from(MinMaxPlayer::Max, 4, 0);
+        assert_eq!(state.evaluate(), 0, "Should be non terminal state");
+
+        let state = MockState::from(MinMaxPlayer::Max, 0, 5);
+        assert_eq!(state.evaluate(), 1, "Terminal state should give score 1 for Max");
+
+        let state = MockState::from(MinMaxPlayer::Min, 0, -5);
+        assert_eq!(state.evaluate(), -1, "Terminal state should give score -1 for Min");
+
+        let state = MockState::from(MinMaxPlayer::Min, 0, 0);
+        assert_eq!(state.evaluate(), 0, "Terminal state should give score 0 for Draw");
+
+    }
+
+    #[test]
+    fn test_no_legal_moves_at_zero_depth() {
+        let state = MockState::from(MinMaxPlayer::Max, 0, 0);
+        assert!(state.legal_moves().is_empty(), "There should be no legal moves");
     }
 }

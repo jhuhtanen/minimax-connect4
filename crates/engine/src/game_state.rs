@@ -89,15 +89,19 @@ impl GameState for ConnectFourState {
     }
 
     fn outcome(&self) -> Option<Outcome> {
-        if self.player1_board.has_won() {
-            Some(Outcome::Win(MinMaxPlayer::Max))
-        } else if self.player2_board.has_won() {
-            Some(Outcome::Win(MinMaxPlayer::Min))
-        } else if self.is_draw() {
-            Some(Outcome::Draw)
-        } else {
-            None
+        // player moved previously
+        let previous_player = self.current_player.opponent();
+        let previous_board = match previous_player {
+            MinMaxPlayer::Max => { &self.player1_board },
+            MinMaxPlayer::Min => { &self.player2_board },
+        };
+        if previous_board.has_won() {
+            return Some(Outcome::Win(previous_player));
         }
+        if self.is_draw() {
+            return Some(Outcome::Draw);
+        }
+        None
     }
 
     fn evaluate(&self) -> i32 {
@@ -117,8 +121,7 @@ impl ConnectFourState {
     }
 
     pub fn is_draw(&self) -> bool {
-        self.legal_moves().iter().count() == 0 &&
-            self.player1_board.has_won() == false && self.player2_board.has_won() == false
+        self.legal_moves().is_empty()
     }
 
     pub fn is_column_legal(&self, col: u8) -> bool {
@@ -251,10 +254,9 @@ impl ConnectFourState {
 
     fn increase_counts(&self, counts: &mut (u16, u16, u16), x: u8, y: u8) {
         match self.token_at(x, y) {
-            Some(player) if player == MinMaxPlayer::Max => counts.0 += 1,
-            Some(player) if player == MinMaxPlayer::Min => counts.1 += 1,
+            Some(MinMaxPlayer::Max) => counts.0 += 1,
+            Some(MinMaxPlayer::Min) => counts.1 += 1,
             None => counts.2 += 1,
-            _ => {}
         }
     }
 }
@@ -263,7 +265,7 @@ impl ConnectFourState {
 mod tests {
     use super::*;
     use pretty_assertions::{assert_eq};
-    use ai::{minimax, SearchConfig};
+    use std::fmt;
 
     #[cfg(test)]
     impl ConnectFourState {
@@ -299,6 +301,35 @@ mod tests {
             }
 
             windows
+        }
+    }
+
+    #[cfg(test)]
+    impl fmt::Debug for ConnectFourState {
+        fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+            writeln!(f, "+{}+", "-".repeat(BOARD_WIDTH as usize))?;
+
+            for row in (0..BOARD_HEIGHT).rev() {
+                write!(f, "|")?;
+                for col in 0..BOARD_WIDTH {
+                    let ch = match self.token_at(col, row) {
+                        Some(player) => player.symbol(),
+                        None => '.'
+                    };
+                    write!(f, "{ch}")?;
+                }
+                writeln!(f,"|")?;
+            }
+
+            writeln!(f, "+{}+", "-".repeat(BOARD_WIDTH as usize))?;
+            write!(f, " ")?;
+            for col in 0..BOARD_WIDTH {
+                write!(f, "{col}")?;
+            }
+            writeln!(f)?;
+            writeln!(f, " TURN: {:?}", self.current_player)?;
+            writeln!(f, " HEURISTIC: {}",self.heuristic_score())?;
+            Ok(())
         }
     }
 
@@ -419,7 +450,9 @@ mod tests {
 
     #[test]
     fn test_outcome_max_wins() {
-        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        // we need to start with current player being Min, but we do not do any moves
+        // hence the previous player was Max
+        let mut game = ConnectFourState::new(MinMaxPlayer::Min);
         game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
 
         // column, row
@@ -434,7 +467,9 @@ mod tests {
 
     #[test]
     fn test_outcome_min_wins() {
-        let mut game = ConnectFourState::new(MinMaxPlayer::Min);
+        // we need to start with current player being Max, but we do not do any moves
+        // hence the previous player was Min
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
         game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
 
         // column, row
@@ -746,6 +781,46 @@ mod tests {
         assert_eq!(mixed_min_actual, 2, "Min should have 2 mixed rows");
         assert_eq!(one_in_rows_max_actual, 14, "Max should have 14 one in rows");
         assert_eq!(game.heuristic_v2(), 4, "Heuristic score should be 4 for Max");
+    }
+
+    #[test]
+    fn test_debug_printing() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        // +-------+
+        // |.......|
+        // |.X...X.|
+        // |..X.X..|
+        // |...X...|
+        // |.OOOOO.|
+        // |.......|
+        // +-------+
+        //  0123456
+        // column, row
+        let max_tokens = [[1, 4], [2, 3], [3, 2], [4, 3], [5, 4]];
+        max_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player1_board.with_bit_set(bit_index);
+        });
+
+        let min_tokens = [[1, 1], [2, 1], [3, 1], [4, 1], [5, 1]];
+        min_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player2_board.with_bit_set(bit_index);
+        });
+        let debug_print = format!("{:?}", game);
+        let expected = "+-------+\n\
+                                    |.......|\n\
+                                    |.X...X.|\n\
+                                    |..X.X..|\n\
+                                    |...X...|\n\
+                                    |.OOOOO.|\n\
+                                    |.......|\n\
+                                    +-------+\n\
+                                    \x200123456\n\
+                                    \x20TURN: Max\n\
+                                    \x20HEURISTIC: 0\n\
+                                    ".to_string();
+        std::assert_eq!(debug_print, expected, "Debug print did not match expected");
 
     }
 }

@@ -233,6 +233,5 @@ mod tests {
                                     +-------+\n\
                                     \x200123456\n".to_string();
         assert_eq!(debug_print, expected, "Debug print did not match expected");
-
     }
 }
