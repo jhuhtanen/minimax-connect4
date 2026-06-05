@@ -103,9 +103,7 @@ mod tests {
         let result = ai::minimax(&game, &search_config);
         let mv = result.best_move.expect("AI must have a move");
 
-        // by the move order heuristic score 2 is the first in order
-        // potentially more safe way to test would be to asset non equality to column 3
-        assert_eq!(mv, Move::new(2).unwrap(), "AI should note give win by playing colum 3");
+        assert_ne!(mv, Move::new(3).unwrap(), "AI should not give win by playing colum 3");
     }
 
     #[test]

@@ -26,12 +26,11 @@ pub enum MoveError {
 }
 
 const MOVE_ORDER: [u8; 7] = [3, 2, 4, 1, 5, 0, 6];
-const THREE_IN_ROW_WEIGHT:i32 = 100;
-const THREE_IN_ROW_WEIGHT_OPPONENT:i32 = 100;
-const TWO_IN_ROW_WEIGHT:i32 = 50;
-const TWO_IN_ROW_WEIGHT_OPPONENT:i32 = 50;
+
+const THREE_IN_ROW_IMMEDIATE: i32 = 1000;
+const THREE_IN_ROW_FUTURE:i32 = 100;
+const TWO_IN_ROW_WEIGHT:i32 = 10;
 const ONE_IN_ROW_WEIGHT:i32 = 1;
-const ONE_IN_ROW_WEIGHT_OPPONENT:i32 = 1;
 
 
 
@@ -127,6 +126,11 @@ impl ConnectFourState {
         col < BOARD_WIDTH && self.heights[col as usize] < BOARD_HEIGHT
     }
 
+    fn is_playable(&self, col: u8, row: u8) -> bool {
+        let h = self.heights[col as usize];
+        row == h
+    }
+
     pub fn token_at(&self, col: u8, row: u8) -> Option<MinMaxPlayer> {
         if self.player1_board.bit_at(col, row) {
             Some(MinMaxPlayer::Max)
@@ -162,55 +166,65 @@ impl ConnectFourState {
     
     fn heuristic_v2(&self) -> i32 {
         let mut score = 0;
-        
+
         // horizontal
         for row in 0..BOARD_HEIGHT {
             for col in 0..(BOARD_WIDTH - 3) {
-                let counts = self.count_window(|offset| (col + offset, row));
-                score += self.score_window(counts);
+                let (counts, empty_cell) = self.count_window(|offset| (col + offset, row));
+                score += self.score_window(counts, empty_cell);
             }
         }
 
         // vertical
         for col in 0..BOARD_WIDTH {
             for row in 0..(BOARD_HEIGHT - 3) {
-                let counts = self.count_window(|offset| (col, row + offset));
-                score += self.score_window(counts);
+                let (counts, empty_cell) = self.count_window(|offset| (col, row + offset));
+                score += self.score_window(counts, empty_cell);
             }
         }
 
         // diagonal top-left to bottom-right (\)
         for col in 0..(BOARD_WIDTH - 3) {
             for row in (3..BOARD_HEIGHT).rev() {
-                let counts = self.count_window(|offset| (col + offset, row - offset));
-                score += self.score_window(counts);
+                let (counts, empty_cell) = self.count_window(|offset| (col + offset, row - offset));
+                score += self.score_window(counts, empty_cell);
             }
         }
 
         // diagonal bottom-left to top-right (/)
         for col in 0..(BOARD_WIDTH - 3) {
             for row in 0..(BOARD_HEIGHT - 3) {
-                let counts = self.count_window(|offset| (col + offset, row + offset));
-                score += self.score_window(counts);
+                let (counts, empty_cell) = self.count_window(|offset| (col + offset, row + offset));
+                score += self.score_window(counts, empty_cell);
             }
         }
         score
     }
 
     #[inline]
-    fn count_window<F>(&self, coord: F) -> (u16, u16, u16)
-        where F: Fn(u8) -> (u8, u8),
-    {
+    fn count_window<F>(&self, coord: F) -> ((u16, u16, u16), Option<(u8, u8)>)
+        where F: Fn(u8) -> (u8, u8) {
+
         let mut counts = (0u16, 0u16, 0u16);
+        let mut empty_cell: Option<(u8, u8)> = None;
+
         for offset in 0..4 {
             let (x, y) = coord(offset);
-            self.increase_counts(&mut counts, x, y);
+            match self.token_at(x, y) {
+                Some(MinMaxPlayer::Max) => counts.0 += 1,
+                Some(MinMaxPlayer::Min) => counts.1 += 1,
+                None => {
+                    counts.2 += 1;
+                    empty_cell = Some((x, y));
+                }
+            }
         }
-        counts
+
+        (counts, empty_cell)
     }
 
     #[inline]
-    fn score_window(&self, (max_count, min_count, empty): (u16, u16, u16)) -> i32 {
+    fn score_window(&self, (max_count, min_count, empty): (u16, u16, u16), empty_cell: Option<(u8, u8)>, ) -> i32 {
         // mixed window - skip
         if max_count > 0 && min_count > 0 {
             return 0;
@@ -220,7 +234,14 @@ impl ConnectFourState {
         if max_count > 0 && min_count == 0 {
             // only Max
             if max_count == 3 && empty == 1 {
-                score += THREE_IN_ROW_WEIGHT;
+                // if the empty is actually playable, higher threat
+                if let Some((col, row)) = empty_cell {
+                    if self.is_playable(col, row) {
+                        score += THREE_IN_ROW_IMMEDIATE;
+                    } else {
+                        score += THREE_IN_ROW_FUTURE;
+                    }
+                }
             } else if max_count == 2 && empty == 2 {
                 score += TWO_IN_ROW_WEIGHT;
             } else if max_count == 1 && empty == 3 {
@@ -229,11 +250,18 @@ impl ConnectFourState {
         } else if min_count > 0 && max_count == 0 {
             // only Min
             if min_count == 3 && empty == 1 {
-                score -= THREE_IN_ROW_WEIGHT_OPPONENT;
+                // if the empty is actually playable, higher threat
+                if let Some((col, row)) = empty_cell {
+                    if self.is_playable(col, row) {
+                        score -= THREE_IN_ROW_IMMEDIATE;
+                    } else {
+                        score -= THREE_IN_ROW_FUTURE;
+                    }
+                }
             } else if min_count == 2 && empty == 2 {
-                score -= TWO_IN_ROW_WEIGHT_OPPONENT;
+                score -= TWO_IN_ROW_WEIGHT;
             } else if min_count == 1 && empty == 3 {
-                score -= ONE_IN_ROW_WEIGHT_OPPONENT;
+                score -= ONE_IN_ROW_WEIGHT;
             }
         }
         score
@@ -262,28 +290,32 @@ mod tests {
             // horizontal
             for row in 0..BOARD_HEIGHT {
                 for col in 0..(BOARD_WIDTH - 3) {
-                    windows.push(self.count_window(|offset| (col + offset, row)));
+                    let (counts, _empty_cell) = self.count_window(|offset| (col + offset, row));
+                    windows.push(counts);
                 }
             }
 
             // vertical
             for col in 0..BOARD_WIDTH {
                 for row in 0..(BOARD_HEIGHT - 3) {
-                    windows.push(self.count_window(|offset| (col, row + offset)));
+                    let (counts, _empty_cell) = self.count_window(|offset| (col, row + offset));
+                    windows.push(counts);
                 }
             }
 
             // diagonal (\)
             for col in 0..(BOARD_WIDTH - 3) {
                 for row in (3..BOARD_HEIGHT).rev() {
-                    windows.push(self.count_window(|offset| (col + offset, row - offset)));
+                    let (counts, _empty_cell) = self.count_window(|offset| (col + offset, row - offset));
+                    windows.push(counts);
                 }
             }
 
             // diagonal  (/)
             for col in 0..(BOARD_WIDTH - 3) {
                 for row in 0..(BOARD_HEIGHT - 3) {
-                    windows.push(self.count_window(|offset| (col + offset, row + offset)));
+                    let (counts, _empty_cell) = self.count_window(|offset| (col + offset, row + offset));
+                    windows.push(counts);
                 }
             }
 
@@ -580,7 +612,7 @@ mod tests {
             .for_each(|x| {
                 assert!(fours.contains(&x), "Four in rows should contain {:?}", &x);
             });
-        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT);
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT);
     }
 
     #[test]
@@ -648,7 +680,7 @@ mod tests {
             .count();
         assert_eq!(three_in_row_actual, 3, "Min should have 3 three in rows");
         assert_eq!(two_in_row_actual, 9, "Min should have 9 two in rows");
-        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT)
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT)
     }
 
     #[test]
@@ -716,7 +748,7 @@ mod tests {
             .count();
         assert_eq!(three_in_row_actual, 3, "Min should have 3 three in rows");
         assert_eq!(twos_in_row_actual, 13, "Min should have 13 twos in rows");
-        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT_OPPONENT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT_OPPONENT);
+        assert!(game.heuristic_v2() < TWO_IN_ROW_WEIGHT, "Heuristic score should be lower than {}", TWO_IN_ROW_WEIGHT);
     }
 
     #[test]
