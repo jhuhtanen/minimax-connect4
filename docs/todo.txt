@@ -11,7 +11,7 @@
 [X] TUI: should the TUI loop be based on few simple states rather than one big loop with ifs?
 [X] Engine: game_state, token_at method doesn't have unit tests.
 [X] Engine: game_state, winner method doesn't have unit tests.
-[ ] General: Start implementation documentation
-[ ] General: Start testing documentation
-[ ] General: Heuristic should be symmetric. Remove also the explicit column weight.
+[X] General: Start implementation documentation
+[X] General: Start testing documentation
+[X] General: Heuristic should be symmetric. Remove also the explicit column weight.
 [ ]

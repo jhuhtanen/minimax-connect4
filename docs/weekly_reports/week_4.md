@@ -18,12 +18,15 @@ peer reviewing easier and crate doc generation to be more complete.
 31.5  : 4 hours  
 3.6   : 2 hours  
 5.6   : 4 hours  
-6.6   : x hours
+6.6   : 2 hours
 
 ## Progression of project
 - Improved unit testing, specially around iterative deepening
 - Win check improvement. Now checking only if previously moved player has won.
 - Move ordering. Now columns are tried in priority order, based on distance from center column.
+- Heuristics is now symmetric.
+- Heuristic supports checking if three in row empty can actually be player (immediate threat or future threat).
+- More comprehensive code documentation
 
 ## Learnings
 - I haven't ever heard of Null Window Search. I don't yet know exactly how that is going to work, if at all, 
