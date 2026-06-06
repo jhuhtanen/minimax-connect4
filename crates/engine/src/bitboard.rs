@@ -1,28 +1,73 @@
 use std::fmt;
 use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH, COL_STRIDE};
 
+/// Bitboard representation for a Connect Four board for a single player.
+///
+/// Internally, the board is stored as a 64‑bit integer, where each bit
+/// corresponds to one cell on the board. The layout is column‑major:
+///
+/// ```text
+///  6 13 20 27 34 41 48
+///  5 12 19 26 33 40 47
+///  4 11 18 25 32 39 46
+///  3 10 17 24 31 38 45
+///  2  9 16 23 30 37 44
+///  1  8 15 22 29 36 43
+///  0  7 14 21 28 35 42
+/// ```
+///
+/// Each `BitBoard` stores the pieces of **one** player. To represent the full
+/// game state, there is one `BitBoard` for each player (e.g. red and white).
+///
+/// # Example
+///
+/// ```ignore
+/// # use engine::bitboard::BitBoard;
+/// # const BOARD_WIDTH: u8 = 7;
+/// # const BOARD_HEIGHT: u8 = 6;
+/// let mut bb = BitBoard::empty();
+/// // Set a few bits and check for a win:
+/// bb.with_bit_set(BitBoard::bit_index(0, 0)); // bottom-left
+/// bb.with_bit_set(BitBoard::bit_index(1, 0));
+/// bb.with_bit_set(BitBoard::bit_index(2, 0));
+/// bb.with_bit_set(BitBoard::bit_index(3, 0));
+/// assert!(bb.has_won());
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BitBoard {
     bits: u64,
 }
 
-/// Internal bit representation in Column major order
-//  6 13 20 27 34 41 48
-//  5 12 19 26 33 40 47
-//  4 11 18 25 32 39 46
-//  3 10 17 24 31 38 45
-//  2  9 16 23 30 37 44
-//  1  8 15 22 29 36 43
-//  0  7 14 21 28 35 42
 impl BitBoard {
+    /// Returns an empty bitboard with no bits set.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use engine::bitboard::BitBoard;
+    /// let bb = BitBoard::empty();
+    /// assert_eq!(bb.bits(), 0);
+    /// ```
     pub fn empty() -> Self {
         BitBoard {
             bits: 0u64
         }
     }
 
-    /// Uses the bitboard to check if any "direction" using the bit shifting produces
-    /// a value when compared to itself produces "pairs" (a value)
+    /// Checks whether this bitboard contains any four‑in‑a‑row pattern.
+    ///
+    /// This uses a common bitboard trick: for each direction (vertical,
+    /// horizontal, and the two diagonals), the board is shifted and ANDed
+    /// with itself to detect contiguous runs. If there exists at least one
+    /// sequence of four aligned bits for this player, this function returns
+    /// `true`.
+    ///
+    /// Directions are encoded as bit shifts:
+    ///
+    /// - `1`  → vertical (same column, row + 1)
+    /// - `7`  → horizontal (next column, same row)
+    /// - `6`  → diagonal `\` (col+1, row+1)
+    /// - `8`  → diagonal `/` (col+1, row-1)
     ///
     pub fn has_won(&self) -> bool {
         // "vertical", "horizontal", "diagonal top left - down right (\)", "diagonal bottom left - top right (/)"
@@ -43,6 +88,10 @@ impl BitBoard {
         self.bits
     }
 
+    /// Sets the bit at the given bit index.
+    ///
+    /// This is a low‑level internal helper; callers usually use
+    /// [`bit_index`] to compute the index from `(col, row)`.
     pub(crate) fn with_bit_set(&mut self, bit: u8) {
 	    self.bits = self.bits | (1 << bit);
     }
@@ -62,6 +111,21 @@ impl BitBoard {
 }
 
 impl fmt::Debug for BitBoard {
+    /// Formats the bitboard as an ASCII Connect Four grid.
+    ///
+    /// Example output:
+    ///
+    /// ```text
+    /// +-------+
+    /// |.......|
+    /// |.......|
+    /// |.......|
+    /// |.......|
+    /// |.......|
+    /// |XXX....|
+    /// +-------+
+    ///  0123456
+    /// ```
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         // top
         writeln!(f, "+{}+", "-".repeat(BOARD_WIDTH as usize))?;

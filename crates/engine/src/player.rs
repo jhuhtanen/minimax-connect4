@@ -1,4 +1,20 @@
 
+/// A player in the Connect Four game.
+///
+/// There are two players:
+/// - `Red`
+/// - `White`
+///
+/// The game alternates turns between these two players.
+///
+/// # Examples
+///
+/// ```
+/// # use engine::player::Player;
+/// let p = Player::Red;
+/// assert_eq!(p.opponent(), Player::White);
+/// assert_eq!(p.symbol(), 'R');
+/// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Player {
     Red,
@@ -6,6 +22,15 @@ pub enum Player {
 }
 
 impl Player {
+    /// Returns the opponent of this player.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use engine::player::Player;
+    /// assert_eq!(Player::Red.opponent(), Player::White);
+    /// assert_eq!(Player::White.opponent(), Player::Red);
+    /// ```
     pub fn opponent(self) -> Self {
         match self {
             Player::Red => Player::White,
@@ -13,6 +38,12 @@ impl Player {
         }
     }
 
+    /// Returns a character symbol used to display this player on the board.
+    ///
+    /// Typically:
+    /// - `Player::Red`   → `'R'`
+    /// - `Player::White` → `'W'`
+    ///
     pub fn symbol(self) -> char {
         match self {
             Player::Red => 'R',
