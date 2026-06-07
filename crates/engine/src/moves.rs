@@ -69,19 +69,23 @@ impl Move {
 	}
 }
 
-#[test]
-fn test_valid_move_creation() {
-	let valid_columns = vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8];
-	valid_columns
-		.iter()
-		.for_each(|&col| {
-			_ = Move::new(col).unwrap();
-		});
+#[cfg(test)]
+mod tests {
+	use super::*;
 
-}
+	#[test]
+	fn test_valid_move_creation() {
+		let valid_columns = vec![0u8, 1u8, 2u8, 3u8, 4u8, 5u8, 6u8];
+		valid_columns
+			.iter()
+			.for_each(|&col| {
+				_ = Move::new(col).unwrap();
+			});
+	}
 
-#[test]
-fn test_invalid_move_creation() {
-	let result = Move::new(7u8);
-	assert!(result.is_err(), "Invalid move should return Err");
+	#[test]
+	fn test_invalid_move_creation() {
+		let result = Move::new(7u8);
+		assert!(result.is_err(), "Invalid move should return Err");
+	}
 }
