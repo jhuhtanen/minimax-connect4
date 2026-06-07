@@ -363,14 +363,6 @@ impl ConnectFourState {
         }
         score
     }
-
-    fn increase_counts(&self, counts: &mut (u16, u16, u16), x: u8, y: u8) {
-        match self.token_at(x, y) {
-            Some(MinMaxPlayer::Max) => counts.0 += 1,
-            Some(MinMaxPlayer::Min) => counts.1 += 1,
-            None => counts.2 += 1,
-        }
-    }
 }
 
 #[cfg(test)]
