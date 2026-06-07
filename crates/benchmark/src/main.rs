@@ -46,6 +46,23 @@ struct RunConfig {
     heuristic_max: HeuristicVersion,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum Winner {
+    Max,
+    Min,
+    Draw,
+}
+
+impl From<&Outcome> for Winner {
+    fn from(outcome: &Outcome) -> Self {
+        match outcome {
+            Outcome::Win(MinMaxPlayer::Max) => Winner::Max,
+            Outcome::Win(MinMaxPlayer::Min) => Winner::Min,
+            Outcome::Draw => Winner::Draw,
+        }
+    }
+}
+
 impl RunConfig {
     fn from(options: &Options) -> Self {
         RunConfig {
@@ -61,7 +78,7 @@ impl RunConfig {
 
 #[derive(Serialize, Deserialize)]
 struct GameStats {
-    winner: Option<String>,
+    winner: Winner,
     moves: u32,
     total_nodes: u64,
     total_millis: u128,
@@ -104,10 +121,15 @@ fn main() {
     for x in 0..options.games {
         let starting_player = get_starting_player(x);
         let stats = play_one_game(&run_config, starting_player);
-        aggregate_results(&mut run_result, &stats);
+        aggregate_results(&mut run_result, &stats.winner);
         run_result.games.push(stats);
-        aggregate_totals(&mut run_result);
     }
+
+    let aggregates = aggregate_totals(&run_result.games);
+    run_result.avg_millis_per_move = aggregates.0 as f64 / aggregates.2 as f64;
+    run_result.avg_nodes_per_move = aggregates.1 as f64 / aggregates.2 as f64;
+    run_result.total_millis = aggregates.0 as f64;
+
     serialize_to_file(&options.output, &run_result);
 }
 
@@ -123,32 +145,21 @@ fn serialize_to_file(file: &String, run_result: &RunResult) {
     serde_json::to_writer_pretty(out, &run_result).unwrap();
 }
 
-fn aggregate_totals(run_result: &mut RunResult) {
-    let mut total: (u128, u64, u64) = (0, 0, 0);
-    run_result
-        .games
-        .iter()
-        .for_each(|x| {
-            total.0 += x.total_millis;
-            total.1 += x.total_nodes;
-            total.2 += x.moves as u64;
-        });
-    run_result.avg_millis_per_move = total.0 as f64 / total.2 as f64;
-    run_result.avg_nodes_per_move = total.1 as f64 / total.2 as f64;
-    run_result.total_millis = total.0 as f64;
+fn aggregate_totals(games: &[GameStats]) -> (u128, u64, u64) {
+    games
+    .iter()
+    .fold((0, 0, 0), | (ms, nodes, moves), game| {
+        (ms + game.total_millis,
+        nodes + game.total_nodes,
+        moves + game.moves as u64,)
+    })
 }
 
-fn aggregate_results(run_result: &mut RunResult, stats: &GameStats) {
-    match stats.winner.clone() {
-        Some(player) => {
-            match player.as_str() {
-                "Max" => run_result.max_wins += 1,
-                "Min" => run_result.min_wins += 1,
-                "Draw" => run_result.draws += 1,
-                _ => unreachable!("Unrecognised player, should be Min or Max.")
-            };
-        },
-        _ => unreachable!("Unknown winner.")
+fn aggregate_results(run_result: &mut RunResult, winner: &Winner) {
+    match winner {
+        Winner::Max => run_result.max_wins += 1,
+        Winner::Min => run_result.min_wins += 1,
+        Winner::Draw => run_result.draws += 1,
     }
 }
 
@@ -177,23 +188,13 @@ fn play_one_game(cfg: &RunConfig, starting_player: MinMaxPlayer) -> GameStats {
         total_nodes += search_result.nodes_visited;
         total_millis += search_result.millis_spent;
     }
-    let winner = get_outcome_str(&game.outcome());
+    let winner = Winner::from(&game.outcome().unwrap());
 
     GameStats {
         winner,
         moves,
         total_nodes,
         total_millis,
-    }
-}
-
-fn get_outcome_str(outcome: &Option<Outcome> ) -> Option<String> {
-    match outcome.unwrap() {
-        Outcome::Win(player) => match player {
-            MinMaxPlayer::Max => Some("Max".to_string()),
-            MinMaxPlayer::Min => Some("Min".to_string()),
-        },
-        Outcome::Draw => Some("Draw".to_string()),
     }
 }
 
@@ -253,17 +254,14 @@ mod tests {
 
     #[test]
     fn test_outcome() {
-        let mut outcome = Some(Outcome::Win(MinMaxPlayer::Max));
-        let mut outcome_str = get_outcome_str(&outcome);
-        assert_eq!(outcome_str.unwrap(), "Max");
+        let mut outcome = Outcome::Win(MinMaxPlayer::Max);
+        assert_eq!(Winner::Max, Winner::from(&outcome));
 
-        outcome = Some(Outcome::Win(MinMaxPlayer::Min));
-        outcome_str = get_outcome_str(&outcome);
-        assert_eq!(outcome_str.unwrap(), "Min");
+        outcome = Outcome::Win(MinMaxPlayer::Min);
+        assert_eq!(Winner::Min, Winner::from(&outcome));
 
-        outcome = Some(Outcome::Draw);
-        outcome_str = get_outcome_str(&outcome);
-        assert_eq!(outcome_str.unwrap(), "Draw")
+        outcome = Outcome::Draw;
+        assert_eq!(Winner::Draw, Winner::from(&outcome))
     }
 
     #[test]
@@ -279,7 +277,6 @@ mod tests {
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
-        assert!(game_stats.winner.is_some(), "We should have a result");
         assert!(game_stats.moves > 0, "We should have more than 0 moves");
         assert!(game_stats.total_nodes > 0, "We should have more than 0 nodes visited");
     }
@@ -297,7 +294,6 @@ mod tests {
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
-        assert!(game_stats.winner.is_some(), "We should have a result");
         assert!(game_stats.moves > 0, "We should have more than 0 moves");
         assert!(game_stats.total_nodes > 0, "We should have more than 0 nodes visited");
     }
@@ -324,6 +320,61 @@ mod tests {
     fn test_starting_player() {
         assert_eq!(MinMaxPlayer::Max,get_starting_player(0), "Even player should be Max");
         assert_eq!(MinMaxPlayer::Min,get_starting_player(1), "Odd player should be Min");
+    }
+
+    #[test]
+    fn test_aggregate_results() {
+        let mut run_result = RunResult {
+            config: RunConfig {
+                games: 0,
+                depth: 0,
+                time_ms: None,
+                alpha_beta: false,
+                heuristic_min: HeuristicVersion::V1,
+                heuristic_max: HeuristicVersion::V1,
+            },
+            total_games: 0,
+            max_wins: 0,
+            min_wins: 0,
+            draws: 0,
+            avg_nodes_per_move: 0.0,
+            avg_millis_per_move: 0.0,
+            total_millis: 0.0,
+            games: vec![],
+        };
+        assert_eq!(run_result.max_wins, 0, "Max should have zero wins");
+        aggregate_results(&mut run_result, &Winner::Max);
+        assert_eq!(run_result.max_wins, 1, "Max should have one win");
+
+        assert_eq!(run_result.min_wins, 0, "Min should have zero wins");
+        aggregate_results(&mut run_result, &Winner::Min);
+        assert_eq!(run_result.min_wins, 1, "Min should have one win");
+
+        assert_eq!(run_result.draws, 0, "There should be zero draws");
+        aggregate_results(&mut run_result, &Winner::Draw);
+        assert_eq!(run_result.draws, 1, "There shold be one draw")
+    }
+
+    #[test]
+    fn test_aggregate_totals() {
+        let games = [
+            GameStats {
+                winner: Winner::Max,
+                moves: 10,
+                total_nodes: 34,
+                total_millis: 234,
+            },
+            GameStats {
+                winner: Winner::Min,
+                moves: 17,
+                total_nodes: 12,
+                total_millis: 123,
+            },
+        ];
+        let (ms, nodes, moves) = aggregate_totals(&games);
+        assert_eq!(357, ms, "Total aggregate of ms should have been 357");
+        assert_eq!(46, nodes, "Total aggregate of nodes should have been 46");
+        assert_eq!(27, moves, "Total aggregate of moves should have been 27");
     }
 }
 
