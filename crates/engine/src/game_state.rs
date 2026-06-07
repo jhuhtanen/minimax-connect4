@@ -4,21 +4,44 @@ use crate::constants::{BOARD_HEIGHT, BOARD_WIDTH};
 use crate::moves::Move;
 use serde::{Deserialize, Serialize};
 
+/// Version of the heuristic evaluation function used for a player.
+///
+/// - `V1` is a baseline heuristic (currently 0 for all non-terminal states).
+/// - `V2` is the improved heuristic that scores 4-cell windows and threat patterns.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum HeuristicVersion {
     V1, // baseline (no heuristic)
     V2, // improved heuristic
 }
 
+/// Connect Four game state used by the search engine.
+///
+/// This struct holds the full information needed to search and play
+/// a Connect Four position:
+/// - which player is to move,
+/// - bitboards for each player's pieces,
+/// - the current height (number of pieces) in each column,
+/// - and the heuristic version used per player.
+///
+/// It implements the generic [`GameState`] trait, so it can be used
+/// directly with the AI crate's Minimax and iterative deepening search.
 #[derive(Clone, Eq, PartialEq, Hash)]
 pub struct ConnectFourState {
+    /// Player whose turn it is to move.
     pub current_player: MinMaxPlayer,
+    /// Bitboard of pieces for the maximizing player (Max).
     pub player1_board: BitBoard,
+    /// Bitboard of pieces for the minimizing player (Min).
     pub player2_board: BitBoard,
+    /// Number of pieces in each column (0-based). Used both to
+    /// determine legal moves and to test if a cell is immediately playable.
     pub heights: [u8; 7],
+    /// Selected heuristic version for each player:
+    /// index 0 = Max, index 1 = Min.
     pub player_heuristic: [HeuristicVersion; 2],
 }
 
+/// Errors that can occur when applying a move to the game state.
 #[derive(Debug, Clone)]
 pub enum MoveError {
     ColumnOutOfBounds(u8),
@@ -42,6 +65,11 @@ impl GameState for ConnectFourState {
         self.current_player
     }
 
+    /// Returns all legal moves from this position, ordered for better pruning.
+    ///
+    /// Legal moves are those columns that are not yet full. The order
+    /// is fixed in `MOVE_ORDER`, which starts from the center column and
+    /// moves outward. This helps alpha-beta pruning.
     fn legal_moves(&self) -> Vec<Self::Move> {
         MOVE_ORDER
             .iter()
@@ -50,6 +78,15 @@ impl GameState for ConnectFourState {
             .collect()
     }
 
+    /// Applies a move and returns the resulting state.
+    ///
+    /// The move is applied by adding a piece for the current player
+    /// in the given column, at the row indicated by `heights[col]`.
+    /// The current player is then toggled to the opponent.
+    ///
+    /// # Errors
+    ///
+    /// - [`MoveError::ColumnFull`] if the column is already full.
     fn with_move(&self, mv: &Move) -> Result<Self, MoveError> {
         let col = mv.column() as usize;
 
@@ -86,6 +123,11 @@ impl GameState for ConnectFourState {
         })
     }
 
+    /// Returns the outcome of the game from this position, if terminal.
+    ///
+    /// - If the player who moved previously has a 4-in-a-row, returns `Win(...)`.
+    /// - If the board is full and there is no winner, returns `Draw`.
+    /// - Otherwise, returns `None` (game still in progress).
     fn outcome(&self) -> Option<Outcome> {
         // player moved previously
         let previous_player = self.current_player.opponent();
@@ -102,12 +144,23 @@ impl GameState for ConnectFourState {
         None
     }
 
+    /// Evaluates the current position using the selected heuristic for the player to move.
+    ///
+    /// - For V1, returns 0 (no positional scoring).
+    /// - For V2, uses a window-based heuristic:
+    ///   counts pure 4-cell windows and scores 1/2/3-in-a-row patterns, with
+    ///   a special bonus/penalty for 3-in-a-rows where the empty cell is
+    ///   immediately playable.
     fn evaluate(&self) -> i32 {
         self.heuristic_score()
     }
 }
 
 impl ConnectFourState {
+    /// Creates a new, empty Connect Four board with the given starting player.
+    ///
+    /// All bitboards are empty and column heights are zero. Both players
+    /// default to using the baseline heuristic (V1).
     pub fn new(starting_player: MinMaxPlayer) -> Self {
         ConnectFourState {
             current_player: starting_player,
@@ -118,19 +171,35 @@ impl ConnectFourState {
         }
     }
 
+    /// Returns `true` if the game is a draw (no legal moves remain).
+    ///
+    /// This does not check for wins; `outcome()` handles win detection first,
+    /// and only uses `is_draw()` as a fallback.
     pub fn is_draw(&self) -> bool {
         self.legal_moves().is_empty()
     }
 
+    /// Returns `true` if a move in the given column would be legal.
+    ///
+    /// A column is legal if it is within bounds and not yet full.
     pub fn is_column_legal(&self, col: u8) -> bool {
         col < BOARD_WIDTH && self.heights[col as usize] < BOARD_HEIGHT
     }
 
+    /// Returns `true` if a piece played at `(col, row)` would be immediately playable.
+    ///
+    /// This is used by the heuristic to distinguish between:
+    /// - "future" threats (empty cell not yet reachable), and
+    /// - "immediate" threats (empty cell is exactly at the next playable height
+    ///   in that column).
     fn is_playable(&self, col: u8, row: u8) -> bool {
         let h = self.heights[col as usize];
         row == h
     }
 
+    /// Returns which player (if any) has a piece at `(col, row)`.
+    ///
+    /// Uses the underlying bitboards to check ownership.
     pub fn token_at(&self, col: u8, row: u8) -> Option<MinMaxPlayer> {
         if self.player1_board.bit_at(col, row) {
             Some(MinMaxPlayer::Max)
@@ -160,10 +229,25 @@ impl ConnectFourState {
         }
     }
 
+    /// Baseline heuristic (V1): no positional scoring.
+    ///
+    /// All non-terminal states evaluate to 0.
     fn heuristic_v1(&self) -> i32 {
         0
     }
-    
+
+    /// Improved heuristic (V2) based on 4-cell windows.
+    ///
+    /// For every horizontal, vertical, and diagonal 4-cell window:
+    /// - Count Max pieces, Min pieces, and empty cells.
+    /// - If the window is "pure" (only one side's pieces + empties),
+    ///   assign a score based on:
+    ///   - 1-in-a-row → small,
+    ///   - 2-in-a-row → medium,
+    ///   - 3-in-a-row:
+    ///     - If the empty cell is immediately playable in that column,
+    ///       give a large bonus/penalty (`THREE_IN_ROW_IMMEDIATE`),
+    ///     - Otherwise, use a smaller "future" weight (`THREE_IN_ROW_FUTURE`).
     fn heuristic_v2(&self) -> i32 {
         let mut score = 0;
 
@@ -201,6 +285,10 @@ impl ConnectFourState {
         score
     }
 
+    /// Counts Max/Min/empty cells in a 4-cell window defined by `coord(offset)`.
+    ///
+    /// Returns both the counts and, if exactly one empty cell exists,
+    /// the coordinates of that empty cell.
     #[inline]
     fn count_window<F>(&self, coord: F) -> ((u16, u16, u16), Option<(u8, u8)>)
         where F: Fn(u8) -> (u8, u8) {
@@ -223,6 +311,15 @@ impl ConnectFourState {
         (counts, empty_cell)
     }
 
+    /// Assigns a heuristic score to a single 4-cell window.
+    ///
+    /// The input is:
+    /// - `(max_count, min_count, empty)` counts, and
+    /// - `empty_cell` = the coordinates of the single empty cell if `empty == 1`.
+    ///
+    /// Mixed windows (both Max and Min present) return 0. Pure windows are
+    /// scored according to 1/2/3-in-a-row patterns and whether the 3-in-a-row
+    /// pattern is immediately playable.
     #[inline]
     fn score_window(&self, (max_count, min_count, empty): (u16, u16, u16), empty_cell: Option<(u8, u8)>, ) -> i32 {
         // mixed window - skip
