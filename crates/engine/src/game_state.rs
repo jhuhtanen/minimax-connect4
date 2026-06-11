@@ -929,6 +929,123 @@ mod tests {
                                     \x20HEURISTIC: 0\n\
                                     ".to_string();
         std::assert_eq!(debug_print, expected, "Debug print did not match expected");
+    }
 
+    // invariant tests
+    #[test]
+    fn test_piece_count_difference_invariant() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+
+        // put some tokens on the board
+        for col in [0, 1, 2, 3, 4] {
+            let mv = Move::new(col).unwrap();
+            if game.is_column_legal(col) {
+                game = game.with_move(&mv).unwrap();
+            }
+        }
+
+        // count tokens on the board
+        let mut max_count = 0;
+        let mut min_count = 0;
+        for col in 0..BOARD_WIDTH {
+            for row in 0..BOARD_HEIGHT {
+                match game.token_at(col, row) {
+                    Some(MinMaxPlayer::Max) => max_count += 1,
+                    Some(MinMaxPlayer::Min) => min_count += 1,
+                    None => {}
+                }
+            }
+        }
+
+        // difference has to be less or equal than 1
+        assert!((max_count  - min_count ) <= 1);
+    }
+
+    #[test]
+    fn test_terminal_and_legal_moves_consistency() {
+        // terminal state first (Min starts)
+        let mut game = ConnectFourState::new(MinMaxPlayer::Min);
+        // column, row
+        let max_tokens = [[3, 0], [4, 0], [5, 0], [6, 0]];
+        max_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player1_board.with_bit_set(bit_index);
+        });
+
+        assert!(game.outcome().is_some());
+        assert!(game.legal_moves().is_empty());
+
+        // Non-terminal state (Max starts)
+        let game2 = ConnectFourState::new(MinMaxPlayer::Max);
+        // column, row
+        let max_tokens = [[2, 0], [3, 0], [5, 0], [6, 0]];
+        max_tokens.iter().for_each(|coord| {
+            let bit_index = BitBoard::bit_index(coord[0], coord[1]);
+            game.player1_board.with_bit_set(bit_index);
+        });
+
+        assert!(game2.outcome().is_none());
+        assert_ne!(game2.legal_moves().is_empty(), false);
+    }
+
+    #[test]
+    fn test_no_overlapping_pieces_in_bitboards() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+
+        // columns to play
+        let columns = [3, 2, 3, 3, 2, 4, 4, 3, 3, 2, 2];
+        columns.iter().for_each(|&col| {
+            game = game.with_move(&Move::new(col).unwrap()).unwrap();
+        });
+
+        // check there's no overlap
+        for col in 0..BOARD_WIDTH {
+            for row in 0..BOARD_HEIGHT {
+                let max_here = game.player1_board.bit_at(col, row);
+                let min_here = game.player2_board.bit_at(col, row);
+                assert!(!(max_here && min_here), "Board has both Max and Min at ({col},{row})");
+            }
+        }
+    }
+
+    #[test]
+    fn test_heights_match_bitboards() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+
+        // columns to play
+        let columns = [3, 2, 3, 3, 2, 4, 4, 3, 3, 2, 2];
+        columns.iter().for_each(|&col| {
+            game = game.with_move(&Move::new(col).unwrap()).unwrap();
+        });
+
+        for col in 0..BOARD_WIDTH {
+            let mut count = 0;
+            for row in 0..BOARD_HEIGHT {
+                if game.token_at(col, row).is_some() {
+                    count += 1;
+                }
+            }
+            assert_eq!(game.heights[col as usize] as usize, count,
+                       "heights[{}] doesn't match number of pieces in column", col);
+        }
+    }
+
+    #[test]
+    fn test_current_player_alternates() {
+        let start = MinMaxPlayer::Max;
+        let mut game = ConnectFourState::new(start);
+
+        // columns to play
+        let columns = [0, 1, 2, 3, 4, 5, 6];
+        for (i, col) in columns.iter().enumerate() {
+            let mv = Move::new(*col).unwrap();
+            game = game.with_move(&mv).unwrap();
+
+            let expected = match (i + 1) % 2 == 0 {
+                true => start,
+                false => start.opponent(),
+            };
+            assert_eq!(game.current_player, expected, "Current player isn't expected player {:?}", expected);
+        }
     }
 }
