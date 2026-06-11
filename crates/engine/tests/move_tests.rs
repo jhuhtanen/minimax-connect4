@@ -1,7 +1,7 @@
 
 #[cfg(test)]
 mod tests {
-    use ai::{GameState, MinMaxPlayer, SearchConfig};
+    use ai::{GameState, MinMaxPlayer, Outcome, SearchConfig};
     use engine::game_state::{ConnectFourState, HeuristicVersion};
     use engine::moves::Move;
 
@@ -114,6 +114,29 @@ mod tests {
         let iter  = ai::iterative_minimax(&game, &search_config);
         assert_eq!(plain.score, iter.score);
         assert_eq!(plain.best_move, iter.best_move);
+    }
+
+    #[test]
+    fn full_ai_to_ai_game() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+
+        let mut cfg = SearchConfig::new_alpha_beta(6);
+        cfg.time_ms = Some(50);
+
+        while game.outcome().is_none() {
+            let res = ai::iterative_minimax(&game, &cfg);
+            let mv  = res.best_move.unwrap();
+            game = game.with_move(&mv).unwrap();
+        }
+
+        let outcome = game.outcome().unwrap();
+        match outcome {
+            Outcome::Win(_) | Outcome::Draw => {
+                // OK
+            }
+        }
     }
 
 }
