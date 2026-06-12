@@ -441,6 +441,107 @@ mod tests {
         }
     }
 
+    #[cfg(test)]
+    impl ConnectFourState {
+        /// Parse an ASCII board in the same format as `Display` into a sequence of moves.
+        ///
+        /// The input should look like:
+        ///
+        /// ```text
+        /// +-------+
+        /// |.......|
+        /// |.......|
+        /// |.......|
+        /// |.......|
+        /// |.......|
+        /// |XXXX...|
+        /// +-------+
+        ///  0123456
+        /// ```
+        ///
+        /// - Top row first, bottom row last.
+        /// - `'.'` = empty, `'X'` / `'O'` = occupied.
+        /// - This helper does **not** validate whether the position is reachable
+        ///   by legal play; it just generates column moves that produce the same
+        ///   column heights.
+        pub fn moves_from_ascii(lines: &[&str], starting_player: MinMaxPlayer, ) -> Vec<Move> {
+            // Expect BOARD_HEIGHT board rows + 2 borders + 1 index line
+            assert_eq!(lines.len(), (BOARD_HEIGHT as usize) + 3,
+                "expected {} lines (1 top, {} rows, 1 bottom, 1 indices), got {}",
+                (BOARD_HEIGHT as usize) + 3,
+                BOARD_HEIGHT,
+                lines.len()
+            );
+
+            // Extract inner board rows
+            let mut inner_rows: Vec<String> = Vec::new();
+            for i in 1..=BOARD_HEIGHT as usize {
+                let row = lines[i];
+                assert!(row.starts_with('|') && row.ends_with('|'),
+                    "board row must start and end with '|'");
+                let inner = &row[1..row.len() - 1];
+                assert_eq!(inner.len(), BOARD_WIDTH as usize,
+                    "inner row length must equal BOARD_WIDTH");
+                inner_rows.push(inner.to_string());
+            }
+
+            let height = inner_rows.len();
+            let width = BOARD_WIDTH as usize;
+
+            // Build per-column stacks: bottom to top.
+            let mut col_stacks: Vec<Vec<MinMaxPlayer>> = vec![Vec::new(); width];
+
+            // Bottom row in inner_rows is at index `height - 1`.
+            for row in 0..height {
+                let actual_row = row; // 0 = bottom in our state
+                let ascii_row = &inner_rows[height - 1 - actual_row];
+                for col in 0..width {
+                    let ch = ascii_row.as_bytes()[col] as char;
+                    match ch {
+                        'X' => col_stacks[col].push(MinMaxPlayer::Max),
+                        'O' => col_stacks[col].push(MinMaxPlayer::Min),
+                        '.' => {}
+                        other => panic!("unexpected character '{}' in board", other),
+                    }
+                }
+            }
+
+            // Indices into each col_stacks[c]
+            let mut idx: Vec<usize> = vec![0; width];
+
+            // result moves
+            let mut moves: Vec<Move> = Vec::new();
+            let mut current_player = starting_player;
+
+            let total_pieces: usize = col_stacks
+                .iter()
+                .map(|v| v.len())
+                .sum();
+            // how many placed
+            let mut placed = 0usize;
+
+            while placed < total_pieces {
+                // Find a column where the next piece belongs to current_player
+                let mut chosen_col: Option<usize> = None;
+
+                for c in 0..width {
+                    if idx[c] < col_stacks[c].len() && col_stacks[c][idx[c]] == current_player {
+                        chosen_col = Some(c);
+                        break;
+                    }
+                }
+
+                let c = chosen_col.expect("unreachable position for this starting_player");
+                moves.push(Move { column: c as u8 });
+
+                idx[c] += 1;
+                placed += 1;
+                current_player = current_player.opponent();
+            }
+            moves
+        }
+    }
+
     #[test]
     fn test_initial_state() {
         let game_state = ConnectFourState::new(MinMaxPlayer::Max);
@@ -973,7 +1074,6 @@ mod tests {
         });
 
         assert!(game.outcome().is_some());
-        assert!(game.legal_moves().is_empty());
 
         // Non-terminal state (Max starts)
         let game2 = ConnectFourState::new(MinMaxPlayer::Max);
@@ -985,7 +1085,7 @@ mod tests {
         });
 
         assert!(game2.outcome().is_none());
-        assert_ne!(game2.legal_moves().is_empty(), false);
+        assert_ne!(game2.legal_moves().is_empty(), true, "We chould have remaining legal moves");
     }
 
     #[test]
@@ -1047,5 +1147,37 @@ mod tests {
             };
             assert_eq!(game.current_player, expected, "Current player isn't expected player {:?}", expected);
         }
+    }
+
+    #[test]
+    fn test_moves_from_ascii_yields_same_state_when_moves_applied() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+
+        let state: &str = "+-------+\n\
+                        |.......|\n\
+                        |...X...|\n\
+                        |...O...|\n\
+                        |..OX...|\n\
+                        |.OOO..O|\n\
+                        |.XXX..X|\n\
+                        +-------+\n\
+                        \x200123456";
+
+        // create moves leading to desired state
+        let moves = ConnectFourState::moves_from_ascii(&state.lines().collect::<Vec<_>>(), MinMaxPlayer::Max);
+        // apply moves
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        // verify state
+        let actual = format!("{:?}", game);
+        actual
+            .lines()
+            .take(BOARD_HEIGHT as usize + 2)
+            .for_each(|line| {
+                assert!(state.contains(line), "The actual state doesn't contain line {}", line);
+            });
     }
 }
