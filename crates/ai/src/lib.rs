@@ -348,6 +348,7 @@ pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G
                     let new_config = SearchConfig::new(config.depth - 1)
                         .with_alpha_beta(config.use_alpha_beta, current_alpha, config.beta);
                     let (_, score, child_nodes) = inner(&child, &new_config);
+
                     nodes += child_nodes;
                     if score > best_score {
                         best_score = score;
@@ -367,6 +368,7 @@ pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G
                     let new_config = SearchConfig::new(config.depth - 1)
                         .with_alpha_beta(config.use_alpha_beta, config.alpha, current_beta);
                     let (_, score, child_nodes) = inner(&child, &new_config);
+
                     nodes += child_nodes;
                     if score < best_score {
                         best_score = score;
@@ -386,6 +388,123 @@ pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G
     SearchResult { best_move, score, nodes_visited,
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
 }
+
+pub fn minimax_pvs<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
+    let start = Instant::now();
+
+    fn inner<G: GameState>(state: &G,
+                           config: &SearchConfig) -> (Option<G::Move>, i32, u64) {
+        // game has ended (terminal)
+        if let Some(outcome) = state.outcome() {
+            let score = match outcome {
+                Outcome::Win(min_max_player) => match min_max_player {
+                    MinMaxPlayer::Max => WIN_SCORE,
+                    MinMaxPlayer::Min => LOSS_SCORE
+                }
+                Outcome::Draw => 0,
+            };
+            return (None, score, 1);
+        }
+        // it hasn't ended, but we reached the max search depth
+        if config.depth == 0 {
+            return (None, state.evaluate(), 1);
+        }
+
+        let moves = state.legal_moves();
+        if moves.is_empty() {
+            // Per the GameState contract, this should never happen:
+            // non-terminal state with no legal moves.
+            unreachable!("GameState contract violated: non-terminal state with no legal moves. \
+            This should not happen.");
+        }
+
+        let mut best_move = None;
+        let mut best_score;
+        let mut nodes = 1; // start with current node
+
+        match state.current_player() {
+            MinMaxPlayer::Max => {
+                best_score = i32::MIN;
+                let mut current_alpha = config.alpha;
+                for (i, mv) in moves.iter().enumerate() {
+                    let child = state.with_move(mv).unwrap();
+                    let (_, score, child_nodes) = {
+                        // for the first do full search
+                        if i == 0 {
+                            let new_config = create_child_config(&config, current_alpha, config.beta);
+                            inner(&child, &new_config)
+                        } else { // all the rest try null window
+                            let new_config = create_child_config(&config, current_alpha, current_alpha + 1);
+                            let (mv, score, child_nodes) = inner(&child, &new_config);
+                            // if we didn't find anything interesting, do full search
+                            if current_alpha < score && score < config.beta {
+                                let new_config = create_child_config(&config, current_alpha, config.beta);
+                                inner(&child, &new_config)
+                            } else {
+                                (mv, score, child_nodes)
+                            }
+                        }
+                    };
+
+                    nodes += child_nodes;
+                    if score > best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_alpha = current_alpha.max(score);
+                    if config.use_alpha_beta && current_alpha >= config.beta {
+                        break;
+                    }
+                }
+            }
+            MinMaxPlayer::Min => {
+                best_score = i32::MAX;
+                let mut current_beta = config.beta;
+                for (i, mv) in moves.iter().enumerate() {
+                    let child = state.with_move(&mv).unwrap();
+                    let (_, score, child_nodes) = {
+                        // for the first do full search
+                        if i == 0 {
+                            let new_config = create_child_config(&config, config.alpha, current_beta);
+                            inner(&child, &new_config)
+                        } else { // all the rest try null window
+                            let new_config = create_child_config(&config, current_beta - 1, current_beta);
+                            let (mv, score, child_nodes) = inner(&child, &new_config);
+                            // if we didn't find anything interesting, do full search
+                            if config.alpha < score && score < current_beta {
+                                let new_config = create_child_config(&config, config.alpha, current_beta);
+                                inner(&child, &new_config)
+                            } else {
+                                (mv, score, child_nodes)
+                            }
+                        }
+                    };
+
+                    nodes += child_nodes;
+                    if score < best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_beta = current_beta.min(score);
+                    if config.use_alpha_beta && current_beta < config.alpha {
+                        break;
+                    }
+                }
+            }
+        }
+        (best_move.cloned(), best_score, nodes)
+    }
+
+    let (best_move, score, nodes_visited) = inner(state, config);
+    SearchResult { best_move, score, nodes_visited,
+        millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
+}
+
+fn create_child_config(parent: &SearchConfig, alpha: i32, beta: i32) -> SearchConfig {
+    SearchConfig::new(parent.depth - 1)
+        .with_alpha_beta(parent.use_alpha_beta, alpha, beta)
+}
+
 
 #[cfg(test)]
 mod tests {
