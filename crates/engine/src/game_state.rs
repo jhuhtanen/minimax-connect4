@@ -370,6 +370,8 @@ mod tests {
     use super::*;
     use pretty_assertions::{assert_eq};
     use std::fmt;
+    use ai::{minimax, minimax_pvs, SearchConfig};
+    use crate::pvs_data::PVS_TEST_CASES;
 
     #[cfg(test)]
     impl ConnectFourState {
@@ -1179,5 +1181,29 @@ mod tests {
             .for_each(|line| {
                 assert!(state.contains(line), "The actual state doesn't contain line {}", line);
             });
+    }
+
+    #[test]
+    fn pvs_matches_plain_on_midgame_positions() {
+        for (_, ascii, starting_player, depth) in PVS_TEST_CASES {
+            let moves = ConnectFourState::moves_from_ascii(*ascii, *starting_player);
+
+            let mut game = ConnectFourState::new(*starting_player);
+            game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+            game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+
+            for mv in &moves {
+                game = game.with_move(mv).unwrap();
+            }
+
+            let mut cfg = SearchConfig::new_alpha_beta(*depth);
+            cfg.time_ms = None;
+
+            let plain = minimax(&game, &cfg);
+            let pvs   = minimax_pvs(&game, &cfg);
+
+            assert_eq!(plain.score, pvs.score, "PVS must match plain minimax score");
+            assert_eq!(plain.best_move, pvs.best_move, "PVS must choose same best move");
+        }
     }
 }
