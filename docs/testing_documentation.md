@@ -62,6 +62,31 @@ The heuristic uses 4‑cell “windows” (rows, columns, diagonals). We test:
 
 This confirms that window enumeration and counting are correct and stable.
 
+#### c) Invariants
+
+The project contains few invariant tests. We test the following invariants:
+
+- **Piece count invariant**:
+
+  - For a few mid‑game positions, test that piece counts for Max and for Min player never differ more
+  than by one
+
+- **Terminal vs non-terminal state and legal moves**:
+
+  - If terminal state, then `outcome().is_some()`.
+  - If non-terminal state, then `outcome().is_none()`, then there must be at least one legal move.
+
+- **Overlapping pieces**:
+  - We play some random mid-game state and verify there's no overlapping pieces.
+
+- **Heights match the internal bitboard state**:
+  - In game state the heights state match the player's bitboard representation state.
+
+- **Players alternate**:
+  - Play a series of moves and verify that turns alternate by player.
+
+These tests protect against structural bugs.
+
 ---
 
 ### 1.3 AI unit tests (minimax, alpha–beta, iterative deepening)

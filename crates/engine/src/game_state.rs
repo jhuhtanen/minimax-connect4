@@ -466,14 +466,13 @@ mod tests {
         /// - This helper does **not** validate whether the position is reachable
         ///   by legal play; it just generates column moves that produce the same
         ///   column heights.
-        pub fn moves_from_ascii(lines: &[&str], starting_player: MinMaxPlayer, ) -> Vec<Move> {
+        pub fn moves_from_ascii(lines: &[&str], starting_player: MinMaxPlayer) -> Vec<Move> {
             // Expect BOARD_HEIGHT board rows + 2 borders + 1 index line
             assert_eq!(lines.len(), (BOARD_HEIGHT as usize) + 3,
-                "expected {} lines (1 top, {} rows, 1 bottom, 1 indices), got {}",
-                (BOARD_HEIGHT as usize) + 3,
-                BOARD_HEIGHT,
-                lines.len()
-            );
+                       "expected {} lines (1 top, {} rows, 1 bottom, 1 indices), got {}",
+                        (BOARD_HEIGHT as usize) + 3,
+                        BOARD_HEIGHT,
+                        lines.len());
 
             // Extract inner board rows
             let mut inner_rows: Vec<String> = Vec::new();
@@ -490,56 +489,82 @@ mod tests {
             let height = inner_rows.len();
             let width = BOARD_WIDTH as usize;
 
-            // Build per-column stacks: bottom to top.
-            let mut col_stacks: Vec<Vec<MinMaxPlayer>> = vec![Vec::new(); width];
+            // owner_at[col][row] with row 0 = bottom.
+            let mut owner_at: Vec<Vec<Option<MinMaxPlayer>>> =
+                vec![vec![None; height]; width];
 
-            // Bottom row in inner_rows is at index `height - 1`.
-            for row in 0..height {
-                let actual_row = row; // 0 = bottom in our state
-                let ascii_row = &inner_rows[height - 1 - actual_row];
+            for ascii_row_idx in 0..height {
+                // ascii_row_idx: 0 = top, height-1 = bottom
+                let ascii_row = &inner_rows[ascii_row_idx];
+                let row = height - 1 - ascii_row_idx; // row 0 = bottom
                 for col in 0..width {
                     let ch = ascii_row.as_bytes()[col] as char;
-                    match ch {
-                        'X' => col_stacks[col].push(MinMaxPlayer::Max),
-                        'O' => col_stacks[col].push(MinMaxPlayer::Min),
-                        '.' => {}
+                    owner_at[col][row] = match ch {
+                        'X' => Some(MinMaxPlayer::Max),
+                        'O' => Some(MinMaxPlayer::Min),
+                        '.' => None,
                         other => panic!("unexpected character '{}' in board", other),
-                    }
+                    };
                 }
             }
 
-            // Indices into each col_stacks[c]
-            let mut idx: Vec<usize> = vec![0; width];
+            // Column heights start at 0.
+            let mut heights: Vec<usize> = vec![0; width];
 
-            // result moves
-            let mut moves: Vec<Move> = Vec::new();
-            let mut current_player = starting_player;
-
-            let total_pieces: usize = col_stacks
+            // Count total number of pieces.
+            let total_pieces: usize = owner_at
                 .iter()
-                .map(|v| v.len())
+                .map(|col_vec| col_vec
+                    .iter()
+                    .filter(|o| o.is_some())
+                    .count())
                 .sum();
-            // how many placed
-            let mut placed = 0usize;
 
-            while placed < total_pieces {
-                // Find a column where the next piece belongs to current_player
-                let mut chosen_col: Option<usize> = None;
+            let mut moves: Vec<Move> = Vec::with_capacity(total_pieces);
 
-                for c in 0..width {
-                    if idx[c] < col_stacks[c].len() && col_stacks[c][idx[c]] == current_player {
-                        chosen_col = Some(c);
-                        break;
+            // Backtrack
+            fn backtrack(owner_at: &Vec<Vec<Option<MinMaxPlayer>>>, size: &(usize, usize),
+                heights: &mut [usize], current_player: MinMaxPlayer, placed: usize, total_pieces: usize,
+                moves: &mut Vec<Move>, ) -> bool {
+
+                if placed == total_pieces {
+                    return true;
+                }
+
+                // Try all columns as candidates for this move.
+                for col in 0..size.1 {
+                    let row = heights[col];
+                    // column full
+                    if row >= size.0 {
+                        continue;
+                    }
+                    if owner_at[col][row] == Some(current_player) {
+                        // Try playing here.
+                        moves.push(Move { column: col as u8 });
+                        heights[col] += 1;
+
+                        if backtrack(owner_at, size,
+                            heights, current_player.opponent(),placed + 1, total_pieces,
+                            moves, ) {
+                            // found a full sequence
+                            return true;
+                        }
+
+                        // Backtrack.
+                        heights[col] -= 1;
+                        moves.pop();
                     }
                 }
 
-                let c = chosen_col.expect("unreachable position for this starting_player");
-                moves.push(Move { column: c as u8 });
-
-                idx[c] += 1;
-                placed += 1;
-                current_player = current_player.opponent();
+                // No choice led to a solution.
+                false
             }
+
+            if !backtrack(&owner_at, &(height, width), &mut heights, starting_player,
+                0, total_pieces, &mut moves, ) {
+                panic!("unreachable position for this starting_player");
+            }
+
             moves
         }
     }
@@ -1150,6 +1175,8 @@ mod tests {
             assert_eq!(game.current_player, expected, "Current player isn't expected player {:?}", expected);
         }
     }
+
+    // invariant tests end
 
     #[test]
     fn test_moves_from_ascii_yields_same_state_when_moves_applied() {
