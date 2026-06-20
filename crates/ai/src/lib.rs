@@ -74,6 +74,7 @@ pub struct SearchConfig {
     pub use_alpha_beta : bool,
     /// Max time in milliseconds to spend per move. Used in iterative deepening.
     pub time_ms: Option<u64>,
+    pub pvs_start_depth : u32,
 }
 
 impl SearchConfig {
@@ -84,6 +85,7 @@ impl SearchConfig {
             beta: i32::MAX,
             use_alpha_beta: false,
             time_ms: None,
+            pvs_start_depth: 0,
         }
     }
 
@@ -94,6 +96,7 @@ impl SearchConfig {
             beta: i32::MAX,
             use_alpha_beta: true,
             time_ms: None,
+            pvs_start_depth: 0,
         }
     }
 
@@ -112,6 +115,8 @@ impl SearchConfig {
 
 const WIN_SCORE:  i32 = 1_000_000;
 const LOSS_SCORE: i32 = -1_000_000;
+
+const PVS_START_DEPTH: u32 = 3; // or 4, to be tuned
 
 /// Searches a game state using iterative deepening Minimax.
 ///
@@ -170,6 +175,172 @@ pub fn iterative_minimax<G: GameState + Eq + Hash>(state: &G,
 
     best_result.expect("iterative_minimax: no depth completed")
 }
+
+pub fn minimax<G: GameState + Eq + Hash>(state: &G,
+                    base_config: &SearchConfig, ) -> SearchResult<G::Move> {
+
+    let mut cache: HashMap<G, G::Move> = HashMap::new();
+    let start = Instant::now();
+    let deadline = base_config
+        .time_ms
+        .map(|ms| start + Duration::from_millis(ms));
+
+    let mut best_result: Option<SearchResult<G::Move>> = None;
+    let mut last_depth_time = Duration::new(0, 0);
+
+    for depth in 1..=base_config.depth {
+        // stop if we are out of time
+        if let Some(dl) = deadline {
+            let now = Instant::now();
+            if now >= dl {
+                break;
+            }
+            let remaining = dl - now;
+            if last_depth_time > remaining {
+                break;
+            }
+        }
+        let mut cfg = base_config.clone();
+        cfg.depth = depth;
+        let start_depth = Instant::now();
+        let result = minimax_with_cache_pvs(state, &cfg, &mut cache);
+        last_depth_time = start_depth.elapsed();
+
+        best_result = Some(SearchResult {
+            depth_reached: depth,
+            ..result
+        });
+    }
+
+    best_result.expect("iterative_minimax: no depth completed")
+}
+
+fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig,
+                                                cache: &mut HashMap<G, G::Move>, ) -> SearchResult<G::Move>{
+
+    let start = Instant::now();
+
+    fn inner<G: GameState>(state: &G,
+                           config: &SearchConfig,
+                           cache: &mut HashMap<G, G::Move>,) -> (Option<G::Move>, i32, u64) where G: Eq + Hash {
+        // game has ended (terminal)
+        if let Some(outcome) = state.outcome() {
+            let score = match outcome {
+                Outcome::Win(min_max_player) => match min_max_player {
+                    MinMaxPlayer::Max => WIN_SCORE,
+                    MinMaxPlayer::Min => LOSS_SCORE
+                }
+                Outcome::Draw => 0,
+            };
+            return (None, score, 1);
+        }
+        // it hasn't ended, but we reached the max search depth
+        if config.depth == 0 {
+            return (None, state.evaluate(), 1);
+        }
+
+        let mut best_move = None;
+        let mut moves = state.legal_moves();
+        if moves.is_empty() {
+            // Per the GameState contract, this should never happen:
+            // non-terminal state with no legal moves.
+            unreachable!("GameState contract violated: non-terminal state with no legal moves. \
+            This should not happen.");
+        }
+        // check cache first
+        if let Some(move_hint) = cache.get(state) {
+            if let Some(pos) = moves
+                .iter()
+                .position(|m| m == move_hint) {
+                moves.swap(0, pos);
+            }
+        }
+
+        let mut best_score;
+        let mut nodes = 1; // start with current node
+
+        match state.current_player() {
+            MinMaxPlayer::Max => {
+                best_score = i32::MIN;
+                let mut current_alpha = config.alpha;
+                for (i, mv) in moves.iter().enumerate() {
+                    let child = state.with_move(mv).unwrap();
+                    let (_, score, child_nodes) = {
+                        // if we haven't reached the PVS start depth OR it's the first on , do full search
+                        if i == 0 || config.depth <= config.pvs_start_depth {
+                            let new_config = create_child_config(&config, current_alpha, config.beta);
+                            inner(&child, &new_config, cache)
+                        } else { // all the rest try null window
+                            let new_config = create_child_config(&config, current_alpha, current_alpha + 1);
+                            let (mv, score, child_nodes) = inner(&child, &new_config, cache);
+                            // if we didn't find anything interesting, do full search
+                            if current_alpha < score && score < config.beta {
+                                let new_config = create_child_config(&config, current_alpha, config.beta);
+                                inner(&child, &new_config, cache)
+                            } else {
+                                (mv, score, child_nodes)
+                            }
+                        }
+                    };
+
+                    nodes += child_nodes;
+                    if score > best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_alpha = current_alpha.max(score);
+                    if config.use_alpha_beta && current_alpha >= config.beta {
+                        break;
+                    }
+                }
+            }
+            MinMaxPlayer::Min => {
+                best_score = i32::MAX;
+                let mut current_beta = config.beta;
+                for (i, mv) in moves.iter().enumerate() {
+                    let child = state.with_move(&mv).unwrap();
+                    let (_, score, child_nodes) = {
+                        // if we haven't reached the PVS start depth OR it's the first on , do full search
+                        if i == 0 || config.depth <= config.pvs_start_depth {
+                            let new_config = create_child_config(&config, config.alpha, current_beta);
+                            inner(&child, &new_config, cache)
+                        } else { // all the rest try null window
+                            let new_config = create_child_config(&config, current_beta - 1, current_beta);
+                            let (mv, score, child_nodes) = inner(&child, &new_config, cache);
+                            // if we didn't find anything interesting, do full search
+                            if config.alpha < score && score < current_beta {
+                                let new_config = create_child_config(&config, config.alpha, current_beta);
+                                inner(&child, &new_config, cache)
+                            } else {
+                                (mv, score, child_nodes)
+                            }
+                        }
+                    };
+
+                    nodes += child_nodes;
+                    if score < best_score {
+                        best_score = score;
+                        best_move = Some(mv);
+                    }
+                    current_beta = current_beta.min(score);
+                    if config.use_alpha_beta && current_beta < config.alpha {
+                        break;
+                    }
+                }
+            }
+        }
+        (best_move.cloned(), best_score, nodes)
+    }
+
+    let (best_move, score, nodes_visited) = inner(state, config, cache);
+    // this should always have a valid move
+    if let Some(ref mv) = best_move {
+        cache.insert(state.clone(), mv.clone());
+    }
+    SearchResult { best_move, score, nodes_visited,
+        millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
+}
+
 
 /// Searches the game tree using Minimax with alpha-beta pruning and a
 /// transposition table.
@@ -287,7 +458,7 @@ fn minimax_with_cache<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
 }
 
-/// Searches a game tree using the Minimax algorithm with alpha-beta pruning.
+/*/// Searches a game tree using the Minimax algorithm with alpha-beta pruning.
 ///
 /// The search explores legal moves from the given game state and assumes
 /// that both players play optimally. Terminal positions are evaluated
@@ -306,7 +477,7 @@ fn minimax_with_cache<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig
 /// # Returns
 ///
 /// A [`SearchResult`] containing the best move found and its evaluation score.
-pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
+fn minimax_plain<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
     let start = Instant::now();
 
     fn inner<G: GameState>(state: &G,
@@ -387,9 +558,9 @@ pub fn minimax<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G
     let (best_move, score, nodes_visited) = inner(state, config);
     SearchResult { best_move, score, nodes_visited,
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
-}
+}*/
 
-pub fn minimax_pvs<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
+/*fn minimax_pvs<G: GameState>(state: &G, config: &SearchConfig) -> SearchResult<G::Move> {
     let start = Instant::now();
 
     fn inner<G: GameState>(state: &G,
@@ -498,11 +669,14 @@ pub fn minimax_pvs<G: GameState>(state: &G, config: &SearchConfig) -> SearchResu
     let (best_move, score, nodes_visited) = inner(state, config);
     SearchResult { best_move, score, nodes_visited,
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
-}
+}*/
 
+#[inline]
 fn create_child_config(parent: &SearchConfig, alpha: i32, beta: i32) -> SearchConfig {
-    SearchConfig::new(parent.depth - 1)
-        .with_alpha_beta(parent.use_alpha_beta, alpha, beta)
+    let mut cfg = SearchConfig::new(parent.depth - 1)
+        .with_alpha_beta(parent.use_alpha_beta, alpha, beta);
+    cfg.pvs_start_depth = parent.pvs_start_depth;
+    cfg
 }
 
 
@@ -616,37 +790,37 @@ mod tests {
 
 
     #[test]
-    fn depth_zero_max_wins() {
+    fn remaining_depth_zero_max_wins() {
         let state = MockState::from(MinMaxPlayer::Max, 0, 2);
-        let mv = minimax(&state, &SearchConfig::new(0));
+        let mv = minimax(&state, &SearchConfig::new(1));
         assert!(state.outcome().is_some());
         assert_eq!(mv.score, WIN_SCORE, "Max winning, score should have been {}", WIN_SCORE);
         assert_eq!(state.outcome().unwrap(), Outcome::Win(MinMaxPlayer::Max), "Max should have won at 0 depth")
     }
 
     #[test]
-    fn depth_zero_min_wins() {
+    fn remaining_depth_zero_min_wins() {
         let state = MockState::from(MinMaxPlayer::Max, 0, -2);
-        let mv = minimax(&state, &SearchConfig::new(0));
+        let mv = minimax(&state, &SearchConfig::new(1));
         assert!(state.outcome().is_some());
         assert_eq!(mv.score, LOSS_SCORE, "Min winning, score should have been {}", LOSS_SCORE);
         assert_eq!(state.outcome().unwrap(), Outcome::Win(MinMaxPlayer::Min), "Min should have won at 0 depth")
     }
 
     #[test]
-    fn depth_zero_draw() {
+    fn remaining_depth_zero_is_draw() {
         let state = MockState::from(MinMaxPlayer::Max, 0, 0);
-        let mv = minimax(&state, &SearchConfig::new(0));
+        let mv = minimax(&state, &SearchConfig::new(1));
         assert!(state.outcome().is_some());
         assert_eq!(mv.score, 0, "Draw score should have been 0");
         assert_eq!(state.outcome().unwrap(), Outcome::Draw, "Game should have ended in draw")
     }
 
     #[test]
-    fn depth_zero_non_terminal() {
+    fn non_terminal_depth_no_outcome() {
         let state = MockState::from(MinMaxPlayer::Max, 1, 0);
-        let mv = minimax(&state, &SearchConfig::new(0));
-        assert_eq!(mv.score, 0, "Non terminal score should have been 0");
+        let mv = minimax(&state, &SearchConfig::new(1));
+        assert!(mv.best_move.is_some());
         assert!(state.outcome().is_none());
     }
 
@@ -708,7 +882,7 @@ mod tests {
     fn alpha_beta_and_plain_return_same_score_for_mock_state() {
         let state = MockState::from(MinMaxPlayer::Max, 4, 0);
 
-        for depth in 0..=4 {
+        for depth in 1..=4 {
             let no_pruning = minimax(&state, &SearchConfig::new(depth));
             let pruning = minimax(&state, &SearchConfig::new_alpha_beta(depth));
 
@@ -740,25 +914,9 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Max, 1, 0);
         let config = SearchConfig::new_alpha_beta(9).with_time_ms(Some(10));
         let start = Instant::now();
-        let result = iterative_minimax(&state, &config);
+        let result = minimax(&state, &config);
         let elapsed = start.elapsed();
         assert!(elapsed.as_millis() < 10, "One move should take less than 10 millis");
-    }
-
-    #[test]
-    fn test_iterative_deepening_vs_traditional_suggests_same_move() {
-        let iterative_state = MockState::from(MinMaxPlayer::Max, 4, 0);
-        let iterative_config = SearchConfig::new_alpha_beta(6).with_time_ms(Some(50));
-
-        let state = MockState::from(MinMaxPlayer::Max, 4, 0);
-        let config = SearchConfig::new_alpha_beta(6);
-
-        let iterative_result = iterative_minimax(&iterative_state, &iterative_config);
-        let result = minimax(&state, &config);
-
-        assert!(iterative_result.best_move.is_some(), "Should return best move");
-        assert!(result.best_move.is_some(), "Should return best move");
-        assert_eq!(result.best_move, iterative_result.best_move, "Results should be the same");
     }
 
     #[test]

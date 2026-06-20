@@ -370,7 +370,7 @@ mod tests {
     use super::*;
     use pretty_assertions::{assert_eq};
     use std::fmt;
-    use ai::{minimax, minimax_pvs, SearchConfig};
+    use ai::{iterative_minimax, minimax, SearchConfig};
     use crate::pvs_data::PVS_TEST_CASES;
 
     #[cfg(test)]
@@ -1211,8 +1211,33 @@ mod tests {
     }
 
     #[test]
-    fn pvs_matches_plain_on_midgame_positions() {
+    fn test_moves_from_ascii_yields_same_state_when_moves_applied_all() {
         for (_, ascii, starting_player, depth) in PVS_TEST_CASES {
+            let moves = ConnectFourState::moves_from_ascii(*ascii, *starting_player);
+
+            let mut game = ConnectFourState::new(*starting_player);
+
+            // apply moves
+            moves
+                .iter()
+                .for_each(|m| {
+                    game = game.with_move(m).unwrap();
+                });
+            // verify state
+            let actual = format!("{:?}", game);
+            let state: String = ascii.join("");
+            actual
+                .lines()
+                .take(BOARD_HEIGHT as usize + 2)
+                .for_each(|line| {
+                    assert!(state.contains(line), "The actual state doesn't contain line {}", line);
+                });
+        }
+    }
+
+    #[test]
+    fn iterative_pvs_matches_plain_iterative_on_midgame_positions() {
+        for (name, ascii, starting_player, depth) in PVS_TEST_CASES {
             let moves = ConnectFourState::moves_from_ascii(*ascii, *starting_player);
 
             let mut game = ConnectFourState::new(*starting_player);
@@ -1225,12 +1250,19 @@ mod tests {
 
             let mut cfg = SearchConfig::new_alpha_beta(*depth);
             cfg.time_ms = None;
+            cfg.pvs_start_depth = 4;
 
-            let plain = minimax(&game, &cfg);
-            let pvs   = minimax_pvs(&game, &cfg);
+            let iterative_plain = iterative_minimax(&game, &cfg);
+            let pvs   = minimax(&game, &cfg);
 
-            assert_eq!(plain.score, pvs.score, "PVS must match plain minimax score");
-            assert_eq!(plain.best_move, pvs.best_move, "PVS must choose same best move");
+            assert_eq!(iterative_plain.score, pvs.score, "PVS must match plain iterative minimax score");
+            assert_eq!(iterative_plain.best_move, pvs.best_move, "PVS must choose same best move");
+            if pvs.nodes_visited > iterative_plain.nodes_visited {
+                println!(
+                        "Case: {} PVS visited more nodes {} > {} than pure iterative",
+                        name, pvs.nodes_visited, iterative_plain.nodes_visited);
+            }
         }
+
     }
 }

@@ -107,16 +107,6 @@ mod tests {
     }
 
     #[test]
-    fn test_minimax_compatibility() {
-        let game = ConnectFourState::new(MinMaxPlayer::Max);
-        let search_config = SearchConfig::new_alpha_beta(4);
-        let plain = ai::minimax(&game, &search_config);
-        let iter  = ai::iterative_minimax(&game, &search_config);
-        assert_eq!(plain.score, iter.score);
-        assert_eq!(plain.best_move, iter.best_move);
-    }
-
-    #[test]
     fn full_ai_to_ai_game() {
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
         game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
@@ -126,7 +116,7 @@ mod tests {
         cfg.time_ms = Some(50);
 
         while game.outcome().is_none() {
-            let res = ai::iterative_minimax(&game, &cfg);
+            let res = ai::minimax(&game, &cfg);
             let mv  = res.best_move.unwrap();
             game = game.with_move(&mv).unwrap();
         }

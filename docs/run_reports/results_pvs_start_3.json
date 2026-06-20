@@ -1,0 +1,320 @@
+{
+  "config": {
+    "games": 50,
+    "depth": 9,
+    "time_ms": null,
+    "alpha_beta": true,
+    "heuristic_min": "V2",
+    "heuristic_max": "V2",
+    "pvs_start_depth": 3
+  },
+  "total_games": 50,
+  "max_wins": 25,
+  "min_wins": 25,
+  "draws": 0,
+  "avg_nodes_per_move": 85974.65,
+  "avg_millis_per_move": 32.9415,
+  "total_millis": 65883.0,
+  "games": [
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1308
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1323
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1306
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1308
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1323
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1335
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1310
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1304
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1317
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1304
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1306
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1324
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1305
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1308
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1306
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1322
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1310
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1308
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1329
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1348
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1307
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1305
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1320
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1305
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1321
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1305
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1343
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1324
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1318
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1343
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1329
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1309
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1318
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1305
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1322
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1309
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1322
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1310
+    },
+    {
+      "winner": "Min",
+      "moves": 40,
+      "total_nodes": 3466447,
+      "total_millis": 1324
+    },
+    {
+      "winner": "Max",
+      "moves": 40,
+      "total_nodes": 3411525,
+      "total_millis": 1335
+    }
+  ]
+}

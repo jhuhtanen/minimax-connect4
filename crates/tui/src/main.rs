@@ -264,11 +264,7 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
         PlayerType::AI => {
             println!("color {:?}, {:?}", player_color, game_settings.ai_setting.get(&game.current_player()).unwrap());
             println!("game: {:?}, {:?}", game.player_heuristic[0], game.current_player);
-            let result = if game_settings.search_config.time_ms.is_some() {
-                ai::iterative_minimax(game, &game_settings.search_config)
-            } else {
-                ai::minimax(game, &game_settings.search_config)
-            };
+            let result = ai::minimax(game, &game_settings.search_config);
             result.best_move.unwrap()
         }
     };
