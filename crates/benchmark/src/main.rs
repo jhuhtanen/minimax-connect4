@@ -34,9 +34,6 @@ struct Options {
     /// Heuristic version for Max player
     #[arg(long, default_value = "v1")]
     heuristic_max: String,
-
-    #[arg(long, default_value_t = 0)]
-    pvs_start_depth: u32,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
@@ -47,7 +44,6 @@ struct RunConfig {
     alpha_beta: bool,
     heuristic_min: HeuristicVersion,
     heuristic_max: HeuristicVersion,
-    pvs_start_depth: u32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -76,7 +72,6 @@ impl RunConfig {
             alpha_beta: options.alpha_beta,
             heuristic_min: parse_heuristic(&options.heuristic_min),
             heuristic_max: parse_heuristic(&options.heuristic_max),
-            pvs_start_depth: options.pvs_start_depth,
         }
     }
 }
@@ -217,7 +212,6 @@ fn build_search_config(config: &RunConfig) -> ai::SearchConfig {
         sc = sc.with_alpha_beta(true, i32::MIN, i32::MAX);
     }
     sc.time_ms = config.time_ms;
-    sc.pvs_start_depth = config.pvs_start_depth;
     sc
 }
 
@@ -241,7 +235,6 @@ mod tests {
             alpha_beta: true,
             heuristic_min: "v1".to_string(),
             heuristic_max: "v2".to_string(),
-            pvs_start_depth: 5
         };
         let run_config = RunConfig::from(&options);
 
@@ -251,7 +244,6 @@ mod tests {
         assert_eq!(run_config.heuristic_min, HeuristicVersion::V1);
         assert_eq!(run_config.heuristic_max, HeuristicVersion::V2);
         assert_eq!(run_config.alpha_beta, true);
-        assert_eq!(run_config.pvs_start_depth, 5);
     }
 
     #[test]
@@ -276,7 +268,6 @@ mod tests {
             alpha_beta: true,
             heuristic_min: "v1".to_string(),
             heuristic_max: "v2".to_string(),
-            pvs_start_depth: 0,
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
@@ -294,7 +285,6 @@ mod tests {
             alpha_beta: true,
             heuristic_min: "v2".to_string(),
             heuristic_max: "v2".to_string(),
-            pvs_start_depth: 0,
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
@@ -312,7 +302,6 @@ mod tests {
             alpha_beta: true,
             heuristic_min: "v2".to_string(),
             heuristic_max: "v2".to_string(),
-            pvs_start_depth: 0,
         };
         let run_config = RunConfig::from(&options);
         let run_result = RunResult::from_config(RunConfig::from(&options));
@@ -337,7 +326,6 @@ mod tests {
                 alpha_beta: false,
                 heuristic_min: HeuristicVersion::V1,
                 heuristic_max: HeuristicVersion::V1,
-                pvs_start_depth: 0,
             },
             total_games: 0,
             max_wins: 0,

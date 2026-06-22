@@ -107,7 +107,7 @@ mod tests {
     }
 
     #[test]
-    fn full_ai_to_ai_game() {
+    fn test_full_ai_to_ai_game() {
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
         game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
         game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
@@ -128,5 +128,4 @@ mod tests {
             }
         }
     }
-
 }

@@ -89,6 +89,9 @@ The results of the runs summarized:
 - How explicit pvs start depth influences the results. For a UI based use, where time
 limitation is needed, the fixed start depth do not really make sense. It looks like
 the best start depth (for PVS) is relative to max depth.
+- Correction: An empirically good threshold for remaining depth to start PVS seems to be 4. This threshold is independent of the max search depth.
+  If the search never reaches that depth (e.g. because of a time limit), then PVS is simply not used for that move. 
+This is better than forcing it at shallow depths where it causes extra work due to many re‑searches.
 
 ## Planned next
 - Based on discussions with the lecturer, I want to make sure the Minimax is tested properly

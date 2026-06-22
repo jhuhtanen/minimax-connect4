@@ -168,16 +168,6 @@ mod tests {
     }
 
     #[test]
-    fn test_accessing_board_state_dont_mutate_self() {
-        let bitboard = BitBoard::empty();
-        let mut value = bitboard.bits();
-        value = 8u64;
-
-        assert_eq!(bitboard.bits(), 0u64, "Board state should be 0");
-        assert_eq!(value, 8u64, "Mutated state outside the bitboard should be 8u64");
-    }
-
-    #[test]
     fn test_change_board_state_with_allowed_value() {
         let mut bitboard = BitBoard::empty();
         let rows = BOARD_HEIGHT;

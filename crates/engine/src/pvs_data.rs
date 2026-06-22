@@ -1,3 +1,4 @@
+#[cfg(test)]
 use ai::MinMaxPlayer;
 
 // early game: min 11 pieces = > 26% of board (11/42)

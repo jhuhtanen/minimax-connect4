@@ -367,10 +367,11 @@ impl ConnectFourState {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
     use super::*;
     use pretty_assertions::{assert_eq};
     use std::fmt;
-    use ai::{iterative_minimax, minimax, SearchConfig};
+    use ai::SearchConfig;
     use crate::pvs_data::PVS_TEST_CASES;
 
     #[cfg(test)]
@@ -1212,7 +1213,7 @@ mod tests {
 
     #[test]
     fn test_moves_from_ascii_yields_same_state_when_moves_applied_all() {
-        for (_, ascii, starting_player, depth) in PVS_TEST_CASES {
+        for (_name, ascii, starting_player, _depth) in PVS_TEST_CASES {
             let moves = ConnectFourState::moves_from_ascii(*ascii, *starting_player);
 
             let mut game = ConnectFourState::new(*starting_player);
@@ -1234,35 +1235,114 @@ mod tests {
                 });
         }
     }
+    
+    // 5 moves to win and 3 moves to win tests
+    #[test]
+    fn test_five_moves_to_win() {
+
+        // name, state, start_player, depth, optimal play column, win score
+        let states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)] = &[
+            (
+            "five_to_win_1",
+            &[
+                "+-------+",
+                "|.......|",
+                "|.X.OO..|",
+                "|.OOXX.X|",
+                "|XOXOO.O|",
+                "|XOOXX.X|",
+                "|OXXXO.O|",
+                "+-------+",
+                " 0123456",
+            ],
+            MinMaxPlayer::Max,
+            5, 4, ai::WIN_SCORE
+            ),
+            (
+            "five_to_win_2",
+            &[
+                "+-------+",
+                "|.......|",
+                "|.......|",
+                "|..O.O..|",
+                "|..XXX..|",
+                "|..OOX..|",
+                "|.OOXX..|",
+                "+-------+",
+                " 0123456",
+            ],
+            MinMaxPlayer::Max,
+            5, 3, ai::WIN_SCORE)];
+
+        assert_moves_to_win(states);
+    }
 
     #[test]
-    fn iterative_pvs_matches_plain_iterative_on_midgame_positions() {
-        for (name, ascii, starting_player, depth) in PVS_TEST_CASES {
-            let moves = ConnectFourState::moves_from_ascii(*ascii, *starting_player);
+    fn test_three_moves_to_win() {
 
-            let mut game = ConnectFourState::new(*starting_player);
-            game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        // name, state, start_player, depth, optimal play column
+        let states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)] = &[
+            (
+                "three_to_win_1",
+                &[
+                    "+-------+",
+                    "|....X..|",
+                    "|.X.OO.O|",
+                    "|.OOXX.X|",
+                    "|XOXOO.O|",
+                    "|XOOXX.X|",
+                    "|OXXXO.O|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                3, 5, ai::WIN_SCORE
+            ),
+            (
+                "three_to_win_2",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|..OX...|",
+                    "|..XOO..|",
+                    "|..XOOOX|",
+                    "|..XOXXX|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                3, 5, ai::LOSS_SCORE
+            ),
+        ];
+        assert_moves_to_win(states);
+    }
+
+
+    fn assert_moves_to_win(states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)]) {
+
+        for (_name, state, start_player, depth, optimal_column, win_score) in states
+        {
+            let mut game = ConnectFourState::new(*start_player);
             game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+            game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
 
-            for mv in &moves {
-                game = game.with_move(mv).unwrap();
-            }
+            let moves = ConnectFourState::moves_from_ascii(*state, *start_player);
+            moves
+                .iter()
+                .for_each(|m| {
+                    game = game.with_move(m).unwrap();
+                });
 
-            let mut cfg = SearchConfig::new_alpha_beta(*depth);
-            cfg.time_ms = None;
-            cfg.pvs_start_depth = 4;
+            let search_config = SearchConfig::new_alpha_beta(*depth);
+            let mut cache: HashMap<ConnectFourState, Move> = HashMap::new();
 
-            let iterative_plain = iterative_minimax(&game, &cfg);
-            let pvs   = minimax(&game, &cfg);
+            let result = ai::minimax_with_cache_pvs(&game, &search_config, &mut cache);
+            assert!(result.best_move.is_some(), "Should have a best move");
 
-            assert_eq!(iterative_plain.score, pvs.score, "PVS must match plain iterative minimax score");
-            assert_eq!(iterative_plain.best_move, pvs.best_move, "PVS must choose same best move");
-            if pvs.nodes_visited > iterative_plain.nodes_visited {
-                println!(
-                        "Case: {} PVS visited more nodes {} > {} than pure iterative",
-                        name, pvs.nodes_visited, iterative_plain.nodes_visited);
-            }
+            let best_move = result.best_move.unwrap();
+            assert_eq!(best_move.column, *optimal_column as u8, "Should play column {}", *optimal_column);
+            assert_eq!(result.score, *win_score, "Optimal play should yield win score {}", *win_score);
         }
-
     }
 }
