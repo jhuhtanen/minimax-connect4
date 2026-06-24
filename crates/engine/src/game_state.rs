@@ -1235,44 +1235,65 @@ mod tests {
                 });
         }
     }
-    
-    // 5 moves to win and 3 moves to win tests
+
+    // 5 moves to win, 3 moves to win and 1 move to win tests
+    // all 3 move to win states are built from 5 moves to win states
+    // all 1 move to win states are build from 3 moves to win states
+    // the relevance is five_to_win_1 -> three_to_win_1 -> one_to_win_1 and so on
     #[test]
     fn test_five_moves_to_win() {
 
         // name, state, start_player, depth, optimal play column, win score
         let states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)] = &[
             (
-            "five_to_win_1",
-            &[
-                "+-------+",
-                "|.......|",
-                "|.X.OO..|",
-                "|.OOXX.X|",
-                "|XOXOO.O|",
-                "|XOOXX.X|",
-                "|OXXXO.O|",
-                "+-------+",
-                " 0123456",
-            ],
-            MinMaxPlayer::Max,
-            5, 4, ai::WIN_SCORE
+                "five_to_win_1",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.X.OO..|",
+                    "|.OOXX.X|",
+                    "|XOXOO.O|",
+                    "|XOOXX.X|",
+                    "|OXXXO.O|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 4, ai::WIN_SCORE - 5
             ),
             (
-            "five_to_win_2",
-            &[
-                "+-------+",
-                "|.......|",
-                "|.......|",
-                "|..O.O..|",
-                "|..XXX..|",
-                "|..OOX..|",
-                "|.OOXX..|",
-                "+-------+",
-                " 0123456",
-            ],
-            MinMaxPlayer::Max,
-            5, 3, ai::WIN_SCORE)];
+                "five_to_win_2",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|..O.O..|",
+                    "|..XXX..|",
+                    "|..OOX..|",
+                    "|.OOXX..|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 3, ai::WIN_SCORE - 5
+            ),
+            (
+                "five_to_win_3",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|.......|",
+                    "|....O..|",
+                    "|..XOOOX|",
+                    "|..XOXXX|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 3, ai::LOSS_SCORE + 5
+            ),
+        ];
 
         assert_moves_to_win(states);
     }
@@ -1280,7 +1301,7 @@ mod tests {
     #[test]
     fn test_three_moves_to_win() {
 
-        // name, state, start_player, depth, optimal play column
+        // name, state, start_player, depth, optimal play column, win score
         let states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)] = &[
             (
                 "three_to_win_1",
@@ -1296,10 +1317,26 @@ mod tests {
                     " 0123456",
                 ],
                 MinMaxPlayer::Max,
-                3, 5, ai::WIN_SCORE
+                5, 5, ai::WIN_SCORE - 3
             ),
             (
                 "three_to_win_2",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|..O.O..|",
+                    "|.OXXX..|",
+                    "|.XOOX..|",
+                    "|.OOXX..|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 3, ai::WIN_SCORE - 3
+            ),
+            (
+                "three_to_win_3",
                 &[
                     "+-------+",
                     "|.......|",
@@ -1312,7 +1349,63 @@ mod tests {
                     " 0123456",
                 ],
                 MinMaxPlayer::Max,
-                3, 5, ai::LOSS_SCORE
+                5, 5, ai::LOSS_SCORE + 3
+            ),
+        ];
+        assert_moves_to_win(states);
+    }
+
+    #[test]
+    fn test_one_move_to_win() {
+        // name, state, start_player, depth, optimal play column, win score
+        let states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)] = &[
+            (
+                "one_to_win_1",
+                &[
+                    "+-------+",
+                    "|....X..|",
+                    "|.XOOO.O|",
+                    "|.OOXX.X|",
+                    "|XOXOO.O|",
+                    "|XOOXX.X|",
+                    "|OXXXOXO|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 5, ai::WIN_SCORE - 1
+            ),
+            (
+                "one_to_win_2",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|....O..|",
+                    "|..OXO..|",
+                    "|.OXXX..|",
+                    "|.XOOX..|",
+                    "|.OOXX..|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 0, ai::WIN_SCORE - 1
+            ),
+            (
+                "one_to_win_3",
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|..OX...|",
+                    "|..XOOOX|",
+                    "|..XOOOX|",
+                    "|..XOXXX|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max,
+                5, 6, ai::LOSS_SCORE + 1
             ),
         ];
         assert_moves_to_win(states);
@@ -1321,7 +1414,7 @@ mod tests {
 
     fn assert_moves_to_win(states: &[(&str, &[&str], MinMaxPlayer, u32, u32, i32)]) {
 
-        for (_name, state, start_player, depth, optimal_column, win_score) in states
+        for (name, state, start_player, depth, optimal_column, win_score) in states
         {
             let mut game = ConnectFourState::new(*start_player);
             game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
@@ -1338,11 +1431,11 @@ mod tests {
             let mut cache: HashMap<ConnectFourState, Move> = HashMap::new();
 
             let result = ai::minimax_with_cache_pvs(&game, &search_config, &mut cache);
-            assert!(result.best_move.is_some(), "Should have a best move");
+            assert!(result.best_move.is_some(), "Case {}: Should have a best move", name);
 
             let best_move = result.best_move.unwrap();
-            assert_eq!(best_move.column, *optimal_column as u8, "Should play column {}", *optimal_column);
-            assert_eq!(result.score, *win_score, "Optimal play should yield win score {}", *win_score);
+            assert_eq!(best_move.column, *optimal_column as u8, "Case {}: Should play column {}", name, *optimal_column);
+            assert_eq!(result.score, *win_score, "Case {}: Optimal play should yield win score {}", name, *win_score);
         }
     }
 }

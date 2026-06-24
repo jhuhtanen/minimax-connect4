@@ -218,13 +218,14 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
 
     fn inner<G: GameState>(state: &G,
                            config: &SearchConfig,
+                           ply_from_root: u32,
                            cache: &mut HashMap<G, G::Move>,) -> (Option<G::Move>, i32, u64) where G: Eq + Hash {
         // game has ended (terminal)
         if let Some(outcome) = state.outcome() {
             let score = match outcome {
                 Outcome::Win(min_max_player) => match min_max_player {
-                    MinMaxPlayer::Max => WIN_SCORE,
-                    MinMaxPlayer::Min => LOSS_SCORE
+                    MinMaxPlayer::Max => WIN_SCORE - ply_from_root as i32,
+                    MinMaxPlayer::Min => LOSS_SCORE + ply_from_root as i32,
                 }
                 Outcome::Draw => 0,
             };
@@ -265,14 +266,14 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                         // if we haven't reached the PVS start depth OR it's the first on , do full search
                         if i == 0 || config.depth <= PVS_START_DEPTH {
                             let new_config = create_child_config(&config, current_alpha, config.beta);
-                            inner(&child, &new_config, cache)
+                            inner(&child, &new_config, ply_from_root + 1, cache)
                         } else { // all the rest try null window
                             let new_config = create_child_config(&config, current_alpha, current_alpha + 1);
-                            let (mv, score, child_nodes) = inner(&child, &new_config, cache);
+                            let (mv, score, child_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
                             // if we didn't find anything interesting, do full search
                             if current_alpha < score && score < config.beta {
                                 let new_config = create_child_config(&config, current_alpha, config.beta);
-                                inner(&child, &new_config, cache)
+                                inner(&child, &new_config, ply_from_root + 1, cache)
                             } else {
                                 (mv, score, child_nodes)
                             }
@@ -299,14 +300,14 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                         // if we haven't reached the PVS start depth OR it's the first on , do full search
                         if i == 0 || config.depth <= PVS_START_DEPTH {
                             let new_config = create_child_config(&config, config.alpha, current_beta);
-                            inner(&child, &new_config, cache)
+                            inner(&child, &new_config, ply_from_root + 1, cache)
                         } else { // all the rest try null window
                             let new_config = create_child_config(&config, current_beta - 1, current_beta);
-                            let (mv, score, child_nodes) = inner(&child, &new_config, cache);
+                            let (mv, score, child_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
                             // if we didn't find anything interesting, do full search
                             if config.alpha < score && score < current_beta {
                                 let new_config = create_child_config(&config, config.alpha, current_beta);
-                                inner(&child, &new_config, cache)
+                                inner(&child, &new_config, ply_from_root + 1, cache)
                             } else {
                                 (mv, score, child_nodes)
                             }
@@ -328,7 +329,7 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
         (best_move.cloned(), best_score, nodes)
     }
 
-    let (best_move, score, nodes_visited) = inner(state, config, cache);
+    let (best_move, score, nodes_visited) = inner(state, config, 0, cache);
     // this should always have a valid move
     if let Some(ref mv) = best_move {
         cache.insert(state.clone(), mv.clone());
@@ -495,7 +496,7 @@ mod tests {
         let mv = minimax(&state, &SearchConfig::new(1));
         assert!(mv.best_move.is_some());
         assert_eq!(mv.best_move.unwrap(), MockMove::Left, "Max should have chosen left");
-        assert_eq!(mv.score, WIN_SCORE, "Score for playing left should have been {}", WIN_SCORE);
+        assert_eq!(mv.score, WIN_SCORE - 1, "Score for playing left should have been {}", WIN_SCORE - 1);
         assert!(state.outcome().is_none());
     }
 
@@ -504,7 +505,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Max, 1, 0);
         let mv = minimax(&state, &SearchConfig::new_alpha_beta(1));
         assert_eq!(mv.best_move.unwrap(), MockMove::Left, "Max should have chosen left");
-        assert_eq!(mv.score, WIN_SCORE, "Score for playing left should have been {}", WIN_SCORE);
+        assert_eq!(mv.score, WIN_SCORE - 1, "Score for playing left should have been {}", WIN_SCORE - 1);
     }
 
     #[test]
@@ -513,7 +514,7 @@ mod tests {
         let mv = minimax(&state, &SearchConfig::new(1));
         assert!(mv.best_move.is_some());
         assert_eq!(mv.best_move.unwrap(), MockMove::Right, "Min should have chosen right");
-        assert_eq!(mv.score, LOSS_SCORE, "Score for playing right should have been {}", LOSS_SCORE);
+        assert_eq!(mv.score, LOSS_SCORE + 1, "Score for playing right should have been {}", LOSS_SCORE + 1);
         assert!(state.outcome().is_none());
     }
 
@@ -522,7 +523,7 @@ mod tests {
         let state = MockState::from(MinMaxPlayer::Min, 1, 0);
         let mv = minimax(&state, &SearchConfig::new_alpha_beta(1));
         assert_eq!(mv.best_move.unwrap(), MockMove::Right, "Min should have chosen right");
-        assert_eq!(mv.score, LOSS_SCORE, "Score for playing right should have been {}", LOSS_SCORE);
+        assert_eq!(mv.score, LOSS_SCORE + 1, "Score for playing right should have been {}", LOSS_SCORE + 1);
     }
 
     #[test]
