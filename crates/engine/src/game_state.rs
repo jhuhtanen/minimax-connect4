@@ -719,6 +719,8 @@ mod tests {
         assert_eq!(Some(Outcome::Win(MinMaxPlayer::Min)), game.outcome(), "Min should have won");
     }
 
+    // Heuristic tests
+
     #[test]
     fn test_outcome_heuristic_evaluate() {
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
@@ -762,6 +764,267 @@ mod tests {
 
         assert!(game.heuristic_score() < 0, "Heuristic v2 score should be below 0");
     }
+
+    #[test]
+    fn test_heuristic_score_both_immediate_three_in_row() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row immediate x 1 = 1000, two in row x 4 = 40,  one in row x 3 = 3
+        // Min: three in row immediate x 1 = -1000, three in row future x 1 = -100, two in row x 4 = -40,
+        // one in row x 6 = -6
+        // Score: 1000 + 40 + 3 - 1000 - 100 - 40 - 6 = -103
+        let state: (&[&str], MinMaxPlayer) =
+        (
+            &[
+                "+-------+",
+                "|.......|",
+                "|.......|",
+                "|..OX...|",
+                "|..XOOOX|",
+                "|..XOOOX|",
+                "|..XOXXX|",
+                "+-------+",
+                " 0123456",
+            ],
+            MinMaxPlayer::Max
+        );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), -103, "Heuristic score should be {}", -103);
+    }
+
+    #[test]
+    fn test_heuristic_score_max_immediate_three_in_row() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row immediate x 1 = 1000, two in row x 1 = 10,  one in row x 9 = 9
+        // Min: three in row immediate x 0 = 0, three in row future x 0 = 0, two in row x 7 = -70,
+        // one in row x 3 = -3
+        // Score: 1000 + 10 + 9 -70 - 3 = 946
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|...X...|",
+                    "|...OO..|",
+                    "|..OXXX.|",
+                    "|..XOOOX|",
+                    "|.OOXXXO|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), 946, "Heuristic score should be {}", 946);
+    }
+
+    #[test]
+    fn test_heuristic_score_min_immediate_three_in_row() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row immediate x 0 = 0, three in row future x 1 = 100, two in row x 1 = 10,  one in row x 8 = 8
+        // Min: three in row immediate x 1 = -1000, three in row future x 0 = 0, two in row x 5 = -50,
+        // one in row x 8 = -8
+        // Score: 100 + 10 + 8 - 1000 - 50 - 8 =
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|.......|",
+                    "|.XO..OX|",
+                    "|.OXOOXO|",
+                    "|XOXXOXX|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), -940, "Heuristic score should be {}", -940);
+    }
+
+    #[test]
+    fn test_heuristic_score_max_three_in_row_future() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row future 100, Two in row x 2 = 20, One in row x 12 = 12
+        // Min: one in row x 5 = 5
+        // Score: 100 + 20 + 12 - 5 = 127
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|.......|",
+                    "|....X..|",
+                    "|O..XO.X|",
+                    "|XOXXO.O|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), 127, "Heuristic score should be {}", 127);
+    }
+
+    #[test]
+    fn test_heuristic_score_min_three_in_row_future() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row future 100 x 1 = 100, Two in row x 2 = 20, One in row x 4 = 4
+        // Min: three in row future -100 x 2 = -200, Two in row 5 = -50, One in row x 8 = -8
+        // Score: 100 + 20 + 4 - 200 - 50 - 8 = -134
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|....OXX|",
+                    "|....XOO|",
+                    "|....OXO|",
+                    "|O.O.OXX|",
+                    "|X.XOXOX|",
+                    "|OXXXOXO|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), -134, "Heuristic score should be {}", -134);
+    }
+
+    #[test]
+    fn test_heuristic_score_max_two_in_row() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row future x 0 = 0, Two in row x 2 = 20, One in row x 5 = 5
+        // Min: one in row future x 0 = 0, Two in row x 0 = 0, One in row x 8 = 8
+        // Score: 20 + 5 - 8 = 17
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|...O...|",
+                    "|...X...|",
+                    "|X..O...|",
+                    "|OOXX...|",
+                    "|XXOOX..|",
+                    "|OXXXOO.|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), 17, "Heuristic score should be {}", 17);
+    }
+
+    #[test]
+    fn test_heuristic_score_min_two_in_row() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row future x 0 = 0, Two in row x 2 = 20, One in row x 8 = 8
+        // Min: one in row future x 0 = 0, Two in row x 4 = -40, One in row x 10 = -10
+        // Score: 20 + 8 - 40 - 10 = -22
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|.......|",
+                    "|.......|",
+                    "|...O...|",
+                    "|X.OX...|",
+                    "|OXOXOXO|",
+                    "|XOXXOXO|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), -22, "Heuristic score should be {}", -22);
+    }
+
+    #[test]
+    fn test_heuristic_score_mixed_board() {
+        let mut game = ConnectFourState::new(MinMaxPlayer::Max);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        // Max: three in row future x 0 = 0, Two in row x 2 = 20, One in row x 1 = 1
+        // Min: one in row future x 0 = 0, Two in row x 0 = 0, One in row x 4 = -4
+        // Score: 20 + 1 - 4 = 17
+        let state: (&[&str], MinMaxPlayer) =
+            (
+                &[
+                    "+-------+",
+                    "|...O...|",
+                    "|X.OXX.O|",
+                    "|O.XOOXO|",
+                    "|X.OXXOX|",
+                    "|OXOXOXO|",
+                    "|XOXXOXO|",
+                    "+-------+",
+                    " 0123456",
+                ],
+                MinMaxPlayer::Max
+            );
+        let moves = ConnectFourState::moves_from_ascii(state.0, state.1);
+        moves
+            .iter()
+            .for_each(|m| {
+                game = game.with_move(m).unwrap();
+            });
+        assert_eq!(game.evaluate(), 17, "Heuristic score should be {}", 17);
+    }
+
+    // Heuristic tests end
 
     #[test]
     fn test_all_four_in_row_counts_match() {
