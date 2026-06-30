@@ -10,6 +10,7 @@ The baseline implementation consists of a depth-limited Minimax search (with opt
 * Iterative deepening (with time limitation)
 * Move ordering
 * Transposition tables
+* Principal Variation Search
 * Heuristic evaluation functions
 
 The implementation is written in Rust language.
@@ -128,6 +129,32 @@ In Connect Four, central moves are often stronger than edge moves and therefore 
 
 Additionally, moves retrieved from the transposition table are searched first when available.
 
+## Principal Variation Search (PVS)
+
+On top of alpha–beta, the search uses Principal Variation Search (also known as Null or Zero Window Search)
+to reduce work on "non‑principal" moves.
+
+At a node where the remaining search depth is sufficiently large (in this
+implementation, at least 4 plies), the children are searched as follows:
+
+* The **first child** (the current best candidate move) is searched with a
+  full alpha–beta window `[alpha, beta]`.
+* The **remaining children** are first searched with a **null window**:
+  a very narrow interval just above or below the current bound. This is a cheap
+  test to see whether the move can beat the current best move.
+* Only if this null-window search indicates that the move might be better than
+  the current best (i.e. the score falls “between” alpha and beta) is the move
+  re‑searched with the full window `[alpha, beta]`.
+
+At shallower remaining depths (less than 4 plies) PVS is not used. This avoids the overhead of null-window
+re‑searches in regions of the tree where move ordering is not yet reliable and
+the potential pruning benefit is small.
+
+PVS does not change the result of the search (score or best move); it is purely
+an optimization on top of alpha–beta. Unit tests and fixed‑depth benchmarks
+were used to verify that the PVS variant returns the same scores and best moves
+as the plain iterative deepening Minimax.
+
 ## Heuristic Evaluation
 
 When the search depth limit is reached before reaching a terminal state, a heuristic evaluation function is used.
@@ -195,24 +222,17 @@ In practice, iterative deepening often improves overall performance due to impro
 
 # Performance Evaluation
 
-Performance was evaluated using the benchmark application.
+Performance was evaluated using the benchmark application by running
+self‑play games from the initial position under different search settings
+(depth limits, optional time limits).
 
-The following algorithm variants were compared:
+The final search configuration (iterative deepening + alpha–beta + transposition
+table + PVS) was measured in terms of:
 
-1. Baseline Minimax with alpha-beta pruning
-2. Iterative deepening Minimax with alpha-beta pruning
-3. [complete this later..]
-
-Metrics collected include:
-
-* Search time
-* Number of explored nodes
-* Achieved search depth
-* Win, loss and draw statistics
-
-## Results
-
-*To be completed.*
+* Average search time per move
+* Average number of explored nodes per move
+* Effective search depth reached under a given time budget
+* Win, loss and draw statistics in self‑play
 
 ---
 
