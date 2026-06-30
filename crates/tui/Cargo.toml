@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-engine = { path = "../engine" }
-ai = { path = "../ai" }
 itertools = "0.14.0"
+
+engine = { workspace = true }
+ai     = { workspace = true }
