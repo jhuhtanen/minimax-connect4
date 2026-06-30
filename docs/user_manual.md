@@ -1,5 +1,12 @@
 # User manual
 
+## TLDR version
+1. [Install](#installation) rust (rustup)
+2. [Create documentation](#crate-documentation) `generate_crate_documentation.sh` or `cargo doc --no-deps --open`. Read the docs.
+3. [Build](#building) it with `cargo build --release`
+4. [Run](#running) binaries under `target/release` folder , either run tui or benchmark binaries.
+
+
 ## Installation
 You need a functional rust environment to be able to run the project. Easiest way
 to install rust is using Rustup. Rustup is a toolchain management application for rust.
@@ -26,7 +33,7 @@ the test coverage locally you need to install the llvm-cov extension. This can b
 
 Please, note that llvm-cov requires at least `rustc 1.87.0`.
 
-## Building 
+## Building
 Building the project from workspace root can be done with `cargo build`   
 
 Workspace root is the project root when cloned from git. Running build will crate a target binary with debug
@@ -46,7 +53,7 @@ in the workspace. It doesn't include the dependencies and tries to open it with 
 Note: The documentation is only focused on the AI and engine crates. Tui and Benchmark, not being priorities are not
 documented currently.
 
-## Running 
+## Running
 ### Unit tests
 Unit tests can be run with `cargo test`. It will output the test results to the console.
 ### Code coverage
@@ -98,10 +105,3 @@ both AI players using heuristic v2 with max depth of 6. Inspection of the parame
 `rustup toolchain list` Lists your current toolchains if you have already existing Rust installations.  
 `rustup default [your toolchain name from list]` If you want to switch your active (default) toolchain version.  
 `cargo clean` when you want to clean the workspace.
-
-
-### TLDR version
-1. Install rust (rustup)
-2. Create documentation `generate_crate_documentation.sh` or `cargo doc --no-deps --open`. Read the docs.
-3. Build it with `cargo build --release`
-4. Under `target/release` folder , either run tui or benchmark binaries.
