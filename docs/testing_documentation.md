@@ -242,9 +242,8 @@ Example configuration:
 
 ### 3.2 Benchmark results 
 
-*[to be filled]*
-
-Plan is to present these results in simple tables and possibly bar charts (nodes/time/wins) in the final report.
+Based on lecturer feedback, comparing the algorithm variants are not needed and as such isn't very interesting.
+Dropped from the final results and report.
 
 ---
 
