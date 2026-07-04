@@ -122,8 +122,6 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
 
     let mut red_player = None;
     let mut yellow_player = None;
-    let mut red_heuristic = None;
-    let mut yellow_heuristic = None;
     let mut ai_mode = None;
     let mut search_depth = None;
     while red_player.is_none() || yellow_player.is_none() {
@@ -133,18 +131,6 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
         println!("Select Yellow player: [0 = Human], [1 = AI]");
         parse_player_type(&mut yellow_player);
     };
-    if red_player == Some(PlayerType::AI) {
-        while red_heuristic.is_none() {
-            println!("Select Red player heuristic: [0 = v1], [1 = v2]");
-            parse_heuristic(&mut red_heuristic);
-        }
-    }
-    if yellow_player == Some(PlayerType::AI) {
-        while yellow_heuristic.is_none() {
-            println!("Select Yellow player heuristic: [0 = v1], [1 = v2]");
-            parse_heuristic(&mut yellow_heuristic);
-        }
-    }
     if yellow_player == Some(PlayerType::AI) || red_player == Some(PlayerType::AI) {
         while ai_mode.is_none() {
             println!("AI mode: [0 = Fixed Depth], [1 = Time Limited]");
@@ -168,12 +154,12 @@ fn handle_settings_state(state: &mut State, game_settings: &mut GameSettings) {
     game_settings.color_to_type.insert(PlayerColor::Yellow, yellow_player.unwrap_or(PlayerType::Human));
     if red_player == Some(PlayerType::AI) {
         game_settings.ai_setting.insert(MinMaxPlayer::Max,
-                                        AiSetting { color: PlayerColor::Red, player: MinMaxPlayer::Max, heuristic: red_heuristic.unwrap() });
+                                        AiSetting { color: PlayerColor::Red, player: MinMaxPlayer::Max, heuristic: HeuristicVersion::V3 });
     }
     game_settings.minimax_to_player.insert(MinMaxPlayer::Max, PlayerColor::Red);
     if yellow_player == Some(PlayerType::AI) {
         game_settings.ai_setting.insert(MinMaxPlayer::Min,
-                                        AiSetting { color: PlayerColor::Yellow, player: MinMaxPlayer::Min, heuristic: yellow_heuristic.unwrap() });
+                                        AiSetting { color: PlayerColor::Yellow, player: MinMaxPlayer::Min, heuristic: HeuristicVersion::V3 });
     }
     game_settings.minimax_to_player.insert(MinMaxPlayer::Min, PlayerColor::Yellow);
 
@@ -198,16 +184,6 @@ fn parse_ai_mode(ai_mode: &mut Option<AiMode>) {
         *ai_mode = match col {
             0 => Some(AiMode::FixedDepth),
             1 => Some(AiMode::TimeLimited),
-            _ => None
-        };
-    }
-}
-
-fn parse_heuristic(heuristic: &mut Option<HeuristicVersion>) {
-    if let Some(col) = read_column() {
-        *heuristic = match col {
-            0 => Some(HeuristicVersion::V1),
-            1 => Some(HeuristicVersion::V2),
             _ => None
         };
     }

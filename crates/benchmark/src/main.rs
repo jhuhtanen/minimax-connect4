@@ -26,14 +26,6 @@ struct Options {
     /// alpha-beta pruning enabled
     #[arg(long, default_value_t = true)]
     alpha_beta: bool,
-
-    /// Heuristic version for Min player
-    #[arg(long, default_value = "v1")]
-    heuristic_min: String,
-
-    /// Heuristic version for Max player
-    #[arg(long, default_value = "v1")]
-    heuristic_max: String,
 }
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
@@ -70,8 +62,8 @@ impl RunConfig {
             depth: options.depth,
             time_ms: options.time_ms,
             alpha_beta: options.alpha_beta,
-            heuristic_min: parse_heuristic(&options.heuristic_min),
-            heuristic_max: parse_heuristic(&options.heuristic_max),
+            heuristic_min: HeuristicVersion::V3,
+            heuristic_max: HeuristicVersion::V3,
         }
     }
 }
@@ -197,15 +189,6 @@ fn parse_options() -> Options {
     Options::parse()
 }
 
-/// Parse heuristic argument into `HeuristicVersion`.
-fn parse_heuristic(s: &str) -> HeuristicVersion {
-    match s {
-        "v1" => HeuristicVersion::V1,
-        "v2" => HeuristicVersion::V2,
-        _    => HeuristicVersion::V1,
-    }
-}
-
 fn build_search_config(config: &RunConfig) -> ai::SearchConfig {
     let mut sc = ai::SearchConfig::new(config.depth);
     if config.alpha_beta {
@@ -220,12 +203,6 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_parse_heuristics() {
-        assert_eq!(parse_heuristic("v1"), HeuristicVersion::V1, "v1 should result HeuristicVersion::V1");
-        assert_eq!(parse_heuristic("v2"), HeuristicVersion::V2, "v2 should result HeuristicVersion::V2");
-    }
-
-    #[test]
     fn test_build_run_config() {
         let options= Options {
             games: 50,
@@ -233,16 +210,14 @@ mod tests {
             time_ms: Some(50),
             output: "my_output_file.json".to_string(),
             alpha_beta: true,
-            heuristic_min: "v1".to_string(),
-            heuristic_max: "v2".to_string(),
         };
         let run_config = RunConfig::from(&options);
 
         assert_eq!(run_config.games, 50);
         assert_eq!(run_config.depth, 10);
         assert_eq!(run_config.time_ms, Some(50));
-        assert_eq!(run_config.heuristic_min, HeuristicVersion::V1);
-        assert_eq!(run_config.heuristic_max, HeuristicVersion::V2);
+        assert_eq!(run_config.heuristic_min, HeuristicVersion::V3);
+        assert_eq!(run_config.heuristic_max, HeuristicVersion::V3);
         assert_eq!(run_config.alpha_beta, true);
     }
 
@@ -266,8 +241,6 @@ mod tests {
             time_ms: None,
             output: "my_output_file.json".to_string(),
             alpha_beta: true,
-            heuristic_min: "v1".to_string(),
-            heuristic_max: "v2".to_string(),
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
@@ -283,8 +256,6 @@ mod tests {
             time_ms: Some(50),
             output: "my_output_file.json".to_string(),
             alpha_beta: true,
-            heuristic_min: "v2".to_string(),
-            heuristic_max: "v2".to_string(),
         };
         let run_config = RunConfig::from(&options);
         let game_stats = play_one_game(&run_config, MinMaxPlayer::Max);
@@ -300,8 +271,6 @@ mod tests {
             time_ms: Some(50),
             output: "my_output_file.json".to_string(),
             alpha_beta: true,
-            heuristic_min: "v2".to_string(),
-            heuristic_max: "v2".to_string(),
         };
         let run_config = RunConfig::from(&options);
         let run_result = RunResult::from_config(RunConfig::from(&options));
@@ -324,8 +293,8 @@ mod tests {
                 depth: 0,
                 time_ms: None,
                 alpha_beta: false,
-                heuristic_min: HeuristicVersion::V1,
-                heuristic_max: HeuristicVersion::V1,
+                heuristic_min: HeuristicVersion::V3,
+                heuristic_max: HeuristicVersion::V3,
             },
             total_games: 0,
             max_wins: 0,

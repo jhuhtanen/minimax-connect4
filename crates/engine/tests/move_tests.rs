@@ -18,8 +18,8 @@ mod tests {
         // 0123456
 
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
-        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
-        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V3);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V3);
 
         let search_config = SearchConfig::new_alpha_beta(6)
             .with_time_ms(Some(50));
@@ -49,8 +49,8 @@ mod tests {
         // 0123456
 
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
-        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
-        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V3);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V3);
 
         let search_config = SearchConfig::new_alpha_beta(6)
             .with_time_ms(Some(50));
@@ -85,8 +85,8 @@ mod tests {
         // 0123456
 
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
-        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
-        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V3);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V3);
 
         let search_config = SearchConfig::new_alpha_beta(6)
             .with_time_ms(Some(50));
@@ -109,8 +109,8 @@ mod tests {
     #[test]
     fn test_full_ai_to_ai_game() {
         let mut game = ConnectFourState::new(MinMaxPlayer::Max);
-        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V2);
-        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V2);
+        game.set_player_heuristic(MinMaxPlayer::Max, HeuristicVersion::V3);
+        game.set_player_heuristic(MinMaxPlayer::Min, HeuristicVersion::V3);
 
         let mut cfg = SearchConfig::new_alpha_beta(6);
         cfg.time_ms = Some(50);

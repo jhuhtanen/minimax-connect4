@@ -44,8 +44,8 @@ impl Move {
 	/// assert_eq!(m.column(), 2);
 	///
 	/// let err = Move::new(BOARD_WIDTH).unwrap_err();
-	/// if let MoveError::ColumnOutOfBounds(c) = err {
-	///     assert_eq!(c, BOARD_WIDTH);
+	/// match err {
+	///     MoveError::ColumnOutOfBounds(c) => assert_eq!(c, BOARD_WIDTH),
 	/// }
 	/// ```
 	pub fn new(column: u8) -> Result<Self, MoveError> {
