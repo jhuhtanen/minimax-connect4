@@ -210,16 +210,15 @@ pub fn minimax<G: GameState + Eq + Hash>(state: &G,
 /// # Returns
 ///
 /// A [`SearchResult`] containing the selected move and its evaluation.
-
 pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &SearchConfig,
                                                 cache: &mut HashMap<G, G::Move>, ) -> SearchResult<G::Move>{
 
     let start = Instant::now();
 
-    fn inner<G: GameState>(state: &G,
-                           config: &SearchConfig,
-                           ply_from_root: u32,
-                           cache: &mut HashMap<G, G::Move>,) -> (Option<G::Move>, i32, u64) where G: Eq + Hash {
+    fn inner<G>(state: &G,
+                   config: &SearchConfig,
+                   ply_from_root: u32,
+                   cache: &mut HashMap<G, G::Move>,) -> (Option<G::Move>, i32, u64) where G: GameState + Eq + Hash {
         // game has ended (terminal)
         if let Some(outcome) = state.outcome() {
             let score = match outcome {
@@ -265,14 +264,14 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                     let (_, score, child_nodes) = {
                         // if we haven't reached the PVS start depth OR it's the first on , do full search
                         if i == 0 || config.depth <= PVS_START_DEPTH {
-                            let new_config = create_child_config(&config, current_alpha, config.beta);
+                            let new_config = create_child_config(config, current_alpha, config.beta);
                             inner(&child, &new_config, ply_from_root + 1, cache)
                         } else { // all the rest try null window
-                            let new_config = create_child_config(&config, current_alpha, current_alpha + 1);
+                            let new_config = create_child_config(config, current_alpha, current_alpha + 1);
                             let (mv, score, child_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
                             // if we didn't find anything interesting, do full search
                             if current_alpha < score && score < config.beta {
-                                let new_config = create_child_config(&config, current_alpha, config.beta);
+                                let new_config = create_child_config(config, current_alpha, config.beta);
                                 inner(&child, &new_config, ply_from_root + 1, cache)
                             } else {
                                 (mv, score, child_nodes)
@@ -295,18 +294,18 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                 best_score = i32::MAX;
                 let mut current_beta = config.beta;
                 for (i, mv) in moves.iter().enumerate() {
-                    let child = state.with_move(&mv).unwrap();
+                    let child = state.with_move(mv).unwrap();
                     let (_, score, child_nodes) = {
                         // if we haven't reached the PVS start depth OR it's the first on , do full search
                         if i == 0 || config.depth <= PVS_START_DEPTH {
-                            let new_config = create_child_config(&config, config.alpha, current_beta);
+                            let new_config = create_child_config(config, config.alpha, current_beta);
                             inner(&child, &new_config, ply_from_root + 1, cache)
                         } else { // all the rest try null window
-                            let new_config = create_child_config(&config, current_beta - 1, current_beta);
+                            let new_config = create_child_config(config, current_beta - 1, current_beta);
                             let (mv, score, child_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
                             // if we didn't find anything interesting, do full search
                             if config.alpha < score && score < current_beta {
-                                let new_config = create_child_config(&config, config.alpha, current_beta);
+                                let new_config = create_child_config(config, config.alpha, current_beta);
                                 inner(&child, &new_config, ply_from_root + 1, cache)
                             } else {
                                 (mv, score, child_nodes)
@@ -340,9 +339,8 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
 
 #[inline]
 fn create_child_config(parent: &SearchConfig, alpha: i32, beta: i32) -> SearchConfig {
-    let cfg = SearchConfig::new(parent.depth - 1)
-        .with_alpha_beta(parent.use_alpha_beta, alpha, beta);
-    cfg
+    SearchConfig::new(parent.depth - 1)
+        .with_alpha_beta(parent.use_alpha_beta, alpha, beta)
 }
 
 

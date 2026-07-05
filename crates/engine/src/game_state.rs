@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 /// Version of the heuristic evaluation function used for a player.
 ///
 /// - `V3` is the improved heuristic that scores 4-cell windows and threat patterns.
-/// Takes into account also two in row where both ends are playable, or only one end playble or
-/// if neither end is playable
+///   Takes into account also two in row where both ends are playable, or only one end playble or
+///   if neither end is playable
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, Eq, PartialEq, Hash)]
 pub enum HeuristicVersion {
      V3,
@@ -93,7 +93,7 @@ impl GameState for ConnectFourState {
     fn with_move(&self, mv: &Move) -> Result<Self, MoveError> {
         let col = mv.column() as usize;
 
-        if self.is_column_legal(mv.column()) == false {
+        if !self.is_column_legal(mv.column()) {
             return Err(MoveError::ColumnFull(mv.column()));
         }
 
@@ -377,7 +377,7 @@ impl ConnectFourState {
             .collect();
 
         let playable_count = playable.len();
-        let type_two = match playable_count {
+        match playable_count {
             2 => {
                 let (o0, _, _) = playable[0];
                 let (o1, _, _) = playable[1];
@@ -394,8 +394,7 @@ impl ConnectFourState {
             1 => TWO_IN_ROW_WEIGHT,
             0 => TWO_FUTURE_WEIGHT,
             _ => unreachable!("4-cell window cannot have more than 2 empties here"),
-        };
-        type_two
+        }
     }
 }
 

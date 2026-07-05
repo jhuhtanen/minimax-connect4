@@ -100,19 +100,17 @@ pub fn run() -> Result<(), Box<dyn Error>> {
 
 fn apply_game_settings(game: &mut ConnectFourState, game_settings: &GameSettings) {
     if game_settings.color_to_type[&PlayerColor::Red] == PlayerType::AI {
-        let version = game_settings
+        let version = *game_settings
             .ai_setting
             .get(&MinMaxPlayer::Max)
-            .unwrap()
-            .clone();
+            .unwrap();
         game.set_player_heuristic(MinMaxPlayer::Max, version.heuristic);
     }
     if game_settings.color_to_type[&PlayerColor::Yellow] == PlayerType::AI {
-        let version = game_settings
+        let version = *game_settings
             .ai_setting
             .get(&MinMaxPlayer::Min)
-            .unwrap()
-            .clone();
+            .unwrap();
         game.set_player_heuristic(MinMaxPlayer::Min, version.heuristic);
     }
 }
@@ -201,13 +199,13 @@ fn parse_player_type(player: &mut Option<PlayerType>) {
 
 fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &mut State, game_settings: &GameSettings) {
     // let's start by redrawing
-    redraw_screen(&game, &ui);
+    redraw_screen(game, ui);
     // if we have an outcome
     if handle_outcome(&game.outcome(), state, &game_settings) {
         return;
     }
 
-    println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player(), &game_settings),
+    println!("Player {}'s ({:?}) turn.", represent_player(&game.current_player(), game_settings),
              game_settings.minimax_to_player[&game.current_player()]);
 
     present_legal_moves(game);
@@ -223,20 +221,19 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
                 Some(c) => c,
                 None => {
                     ui.error_message = Some("Exiting game.".to_string());
-                    redraw_screen(&game, &ui);
+                    redraw_screen(game, ui);
                     handle_state_change(state);
                     return;
                 }
             };
 
-            let mv = match Move::new(col) {
+            match Move::new(col) {
                 Ok(m) => m,
                 Err(_) => {
                     ui.error_message = Some(format!("Column {} is out of bounds. Try again.", col));
                     return;
                 }
-            };
-            mv
+            }
         },
         PlayerType::AI => {
             println!("color {:?}, {:?}", player_color, game_settings.ai_setting.get(&game.current_player()).unwrap());
@@ -254,7 +251,7 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
             return;
         }
     };
-    if both_players_ai(&game_settings) {
+    if both_players_ai(game_settings) {
         thread::sleep(core::time::Duration::from_millis(100));
     }
 }
@@ -272,18 +269,18 @@ fn handle_outcome(outcome: &Option<Outcome>, state: &mut State, game_settings: &
     if let Some(outcome) = outcome {
         match outcome {
             Outcome::Win(winner) => {
-                let player_color = game_settings.minimax_to_player[&winner];
+                let player_color = game_settings.minimax_to_player[winner];
                 let player_type = game_settings.color_to_type[&player_color];
                 let type_presentation = match player_type {
                     PlayerType::Human => {
                         format!("{:?}", player_type)
                     },
                     PlayerType::AI => {
-                        format!("{:?}, heuristic: {:?}", player_type, game_settings.ai_setting.get(&winner).unwrap().heuristic)
+                        format!("{:?}, heuristic: {:?}", player_type, game_settings.ai_setting.get(winner).unwrap().heuristic)
                     }
                 };
 
-                println!("Player {:?} ({:?}) wins!", represent_player(&winner, &game_settings), type_presentation);
+                println!("Player {:?} ({:?}) wins!", represent_player(winner, game_settings), type_presentation);
             },
             Outcome::Draw => {
                 println!("It's a draw!");

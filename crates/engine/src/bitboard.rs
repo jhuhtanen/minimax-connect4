@@ -93,7 +93,7 @@ impl BitBoard {
     /// This is a low‑level internal helper; callers usually use
     /// [`bit_index`] to compute the index from `(col, row)`.
     pub(crate) fn with_bit_set(&mut self, bit: u8) {
-	    self.bits = self.bits | (1 << bit);
+	    self.bits |= 1 << bit;
     }
 
     /// Checks if the bit at column, row is set

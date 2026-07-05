@@ -156,7 +156,7 @@ fn aggregate_results(run_result: &mut RunResult, winner: &Winner) {
 }
 
 fn play_one_game(cfg: &RunConfig, starting_player: MinMaxPlayer) -> GameStats {
-    let mut game = ConnectFourState::new(starting_player.clone());
+    let mut game = ConnectFourState::new(starting_player);
     game.set_player_heuristic(MinMaxPlayer::Min, cfg.heuristic_min);
     game.set_player_heuristic(MinMaxPlayer::Max, cfg.heuristic_max);
     let mut total_nodes = 0u64;
