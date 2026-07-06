@@ -315,7 +315,7 @@ mod tests {
 
         assert_eq!(run_result.draws, 0, "There should be zero draws");
         aggregate_results(&mut run_result, &Winner::Draw);
-        assert_eq!(run_result.draws, 1, "There shold be one draw")
+        assert_eq!(run_result.draws, 1, "There should be one draw")
     }
 
     #[test]

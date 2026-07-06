@@ -214,7 +214,6 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                                                 cache: &mut HashMap<G, G::Move>, ) -> SearchResult<G::Move>{
 
     let start = Instant::now();
-
     fn inner<G>(state: &G,
                    config: &SearchConfig,
                    ply_from_root: u32,
@@ -272,7 +271,8 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                             // if we didn't find anything interesting, do full search
                             if current_alpha < score && score < config.beta {
                                 let new_config = create_child_config(config, current_alpha, config.beta);
-                                inner(&child, &new_config, ply_from_root + 1, cache)
+                                let (mv, score, full_search_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
+                                (mv, score, child_nodes + full_search_nodes)
                             } else {
                                 (mv, score, child_nodes)
                             }
@@ -306,7 +306,8 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                             // if we didn't find anything interesting, do full search
                             if config.alpha < score && score < current_beta {
                                 let new_config = create_child_config(config, config.alpha, current_beta);
-                                inner(&child, &new_config, ply_from_root + 1, cache)
+                                let (mv, score, full_search_nodes) = inner(&child, &new_config, ply_from_root + 1, cache);
+                                (mv, score, child_nodes + full_search_nodes)
                             } else {
                                 (mv, score, child_nodes)
                             }
@@ -325,14 +326,14 @@ pub fn minimax_with_cache_pvs<G: GameState + Eq + Hash>(state: &G, config: &Sear
                 }
             }
         }
+        // this should always have a valid move
+        if let Some(mv) = best_move {
+            cache.insert(state.clone(), mv.clone());
+        }
         (best_move.cloned(), best_score, nodes)
     }
 
     let (best_move, score, nodes_visited) = inner(state, config, 0, cache);
-    // this should always have a valid move
-    if let Some(ref mv) = best_move {
-        cache.insert(state.clone(), mv.clone());
-    }
     SearchResult { best_move, score, nodes_visited,
         millis_spent: start.elapsed().as_millis(), depth_reached: config.depth }
 }
