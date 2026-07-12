@@ -16,6 +16,8 @@ pub const ANSI_YELLOW: &str = "\u{001B}[33m";
 pub const FILLED_TOKEN: &str = "●";
 pub const EMPTY_TOKEN: &str = "○";
 
+const TIME_LIMITED_MAX_DEPTH: u32 = 15;
+
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 enum State {
@@ -63,7 +65,7 @@ impl GameSettings {
             color_to_type: HashMap::new(),
             minimax_to_player: HashMap::new(),
             ai_setting: HashMap::new(),
-            search_config: SearchConfig::new_alpha_beta(6),
+            search_config: SearchConfig::new_alpha_beta(9),
         }
     }
 }
@@ -172,7 +174,7 @@ fn parse_search_depth(search_depth: &mut Option<u32>) {
 
 fn parse_time_limit(game_settings: &mut GameSettings) {
     if let Some(col) = read_value::<u64>() {
-        game_settings.search_config.depth = 9;
+        game_settings.search_config.depth = TIME_LIMITED_MAX_DEPTH;
         game_settings.search_config.time_ms = Some(col);
     };
 }
@@ -236,8 +238,7 @@ fn handle_running_state(game: &mut ConnectFourState, ui: &mut UiState, state: &m
             }
         },
         PlayerType::AI => {
-            println!("color {:?}, {:?}", player_color, game_settings.ai_setting.get(&game.current_player()).unwrap());
-            println!("game: {:?}, {:?}", game.player_heuristic[0], game.current_player);
+            println!("Thinking...");
             let result = ai::minimax(game, &game_settings.search_config);
             result.best_move.unwrap()
         }

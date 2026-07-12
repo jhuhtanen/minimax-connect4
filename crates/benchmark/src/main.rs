@@ -12,7 +12,7 @@ struct Options {
     games: u32,
 
     /// Max search depth
-    #[arg(long, default_value_t = 6)]
+    #[arg(long, default_value_t = 9)]
     depth: u32,
 
     /// Time limit per move in milliseconds (optional)
