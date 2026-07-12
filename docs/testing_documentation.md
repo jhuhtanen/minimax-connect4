@@ -212,8 +212,8 @@ Performance is not tested in `cargo test` directly, but with the **benchmark too
 ### 3.1 Benchmark setup
 
 - We run AI vs AI games with different configurations:
-  - v1 heuristic vs v2 heuristic,
-  - Plain minimax (fixed depth) vs iterative deepening (time limited).
+  - v1 heuristic vs v2 heuristic, (NOTE: currently only v3)
+  - Plain minimax (fixed depth) vs iterative deepening (time limited). (NOTE: currently only iterative deepening)
 - For each configuration we collect:
   - Number of games (e.g., 50),
   - Average nodes per move,
@@ -222,22 +222,18 @@ Performance is not tested in `cargo test` directly, but with the **benchmark too
 
 Example configuration:
 
-- Depth‑limited baseline:
+- Iterative deepening, Depth‑limited:
 
   ```text
   depth = 6
   time_ms = None
-  heuristic_min = V1
-  heuristic_max = V1
   ```
 
-- Iterative deepening + heuristic:
+- Iterative deepening, Time-limited:
 
   ```text
   depth = 9       // high cap, not always reached
   time_ms = 50
-  heuristic_min = V2
-  heuristic_max = V2
   ```
 
 ### 3.2 Benchmark results 
@@ -262,17 +258,15 @@ with coverage (optional) `cargo llvm-cov --workspace --ignore-filename-regex 'tu
 From the project root:
 
 ```
-# depth-limited baseline
-cargo run -p benchmark --release -- \
-    --games 50 --depth 6 --time-ms none \
-    --heuristic-min v1 --heuristic-max v1 \
-    --output baseline_v1.json
-
-# iterative deepening + v2
+# iterative deepening, pvs + v3 heuristics, time limited
 cargo run -p benchmark --release -- \
     --games 50 --depth 9 --time-ms 50 \
-    --heuristic-min v2 --heuristic-max v2 \
-    --output iterative_v2_50ms.json
+    --output result_depth9_50ms.json
+    
+# iterative deepening, pvs + v3 heuristics, depth limited
+cargo run -p benchmark --release -- \
+    --games 50 --depth 9  \
+    --output result_depth9.json
 ```
 
 These commands:
@@ -296,5 +290,5 @@ These commands:
 
 - **Performance/empirical tests**:
   - Run via a separate benchmark tool,
-  - Compare different algorithm configurations (v1 vs v2, fixed depth vs iterative),
+  - Compare different algorithm configurations (v1 vs v2 vs 3, fixed depth vs iterative), NOTE: these are not all in the current repository anymore.
   - Provide node/time and outcome statistics.
